@@ -247,11 +247,10 @@ sub read_state {
 sub do_queue {
 	my ($id, $pack) = @_;
 
-	my $spot = 1;
-	if (grep { ($_->{'id'} eq $id) and ($_{'pack'} eq $pack) } @queue) { return "You already queued pack #$pack."; }
+	if (defined grep { ($_->{'id'} eq $id) and ($_{'pack'} eq $pack) } @queue) { return "You already queued pack #$pack."; }
 
 	push @queue, { id => $id, pack => $pack };
-  return sprintf("Added you to the main queue for pack #%d in position %d.", $pack, $#queue);
+  return sprintf("Added you to the main queue for pack #%d in position %d.", $pack, $#queue+1);
 }
 
 sub slots_available {
