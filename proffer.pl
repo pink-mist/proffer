@@ -32,6 +32,7 @@ our $slots       = 2;
 our $slots_user  = 1;
 our $queues      = 10;
 our $queues_user = 3;
+our $hide        = 1;
 
 our @files = ();
 our @queue = ();
@@ -58,6 +59,7 @@ Usage:
  * \002/set proffer_slots_user <num>\002 -- number of send slots per user
  * \002/set proffer_queues <num>\002 -- number of queues
  * \002/set proffer_queues_user <num>\002 -- number of queues per user
+ * \002/set proffer_hide\002 -- set to 1 to hide xdcc commands (default is 1)
  * \002/proffer_add <dir|file>\002 -- add every file (that isn't already added) in a
                               directory or a specific file
  * \002/proffer_add_ann <dir|file>\002 -- ditto, but also announce the file-add
@@ -248,6 +250,7 @@ sub irssi_init {
 	Irssi::settings_add_int(   'proffer', 'proffer_slots_user',  $slots_user);
 	Irssi::settings_add_int(   'proffer', 'proffer_queues',      $queues);
 	Irssi::settings_add_int(   'proffer', 'proffer_queues_user', $queues_user);
+	Irssi::settings_add_bool(  'proffer', 'proffer_hide',        $hide);
 	Irssi::command_bind(       'proffer_add',                    \&irssi_add);
 	Irssi::command_bind(       'proffer_add_ann',                \&irssi_add_ann);
 	Irssi::command_bind(       'proffer_announce',               \&irssi_announce);
@@ -255,6 +258,8 @@ sub irssi_init {
 	Irssi::command_bind(       'proffer_mov',                    \&irssi_mov);
 	Irssi::command_bind(       'proffer_list',                   \&irssi_list);
 	Irssi::signal_add(         'setup changed',                  \&irssi_reload);
+	Irssi::signal_add_first(   'message private',                \&irssi_handle_pm);
+	irssi_reload();
 }
 
 sub irssi_add {
@@ -300,12 +305,60 @@ sub irssi_list {
 }
 
 sub irssi_reload {
-	$channels    = Irssi::settings_get_str('proffer_channels');
-	$slots       = Irssi::settings_get_int('proffer_slots');
-	$slots_user  = Irssi::settings_get_int('proffer_slots_user');
-	$queues      = Irssi::settings_get_int('proffer_queues');
-	$queues_user = Irssi::settings_get_int('proffer_queues_user');
+	$channels    = Irssi::settings_get_str( 'proffer_channels');
+	$slots       = Irssi::settings_get_int( 'proffer_slots');
+	$slots_user  = Irssi::settings_get_int( 'proffer_slots_user');
+	$queues      = Irssi::settings_get_int( 'proffer_queues');
+	$queues_user = Irssi::settings_get_int( 'proffer_queues_user');
+	$hide        = Irssi::settings_get_bool('proffer_hide');
 	Irssi::print('proffer updated.') if $debug;
+}
+
+sub irssi_handle_pm {
+	my ($server, $msg, $nick, $host) = @_;
+  if ($msg =~ /^xdcc /i) {
+		if (irssi_check_channels($server, $nick)) {
+			Irssi::signal_stop() if $hide;
+			my $return = irssi_handle_xdcc($server, $nick, $msg);
+			Irssi::print($return) if defined $return;
+		}
+	}
+}
+
+sub irssi_check_channels {
+	my ($server, $nick) = @_;
+
+	#go through each channel that is also in $channels variable
+	my @channels = grep { $_->{'name'} ~~ [split(' ', $channels)] } $server->channels();
+	foreach my $chan (@channels) {
+		if ($chan->nick_find($nick)) { return 1; }
+	}
+
+	return 0;
+}
+
+sub irssi_handle_xdcc {
+	my ($server, $nick, $msg) = @_;
+  given ($msg) {
+		when (/^xdcc list$/i)         { irssi_reply($server, $nick, return_list($server->{'nick'})); }
+		when (/^xdcc send #?(\d+)$/i) { my $pack = $1; irssi_try_send($server, $nick, $pack); }
+		when (/^xdcc info #?(\d+)$/i) { my $pack = $1; }
+		when (/^xdcc stop$/i)         { }
+		when (/^xdcc cancel$/i)       { }
+	}
+}
+
+sub irssi_reply {
+	my ($server, $nick, $msg) = @_;
+
+	foreach (split("\n", $msg)) {
+		$server->send_message($nick, $_, 1);
+	}
+}
+
+sub irssi_try_send {
+	my ($server, $nick, $msg) = @_;
+
 }
 
 if (HAVE_IRSSI) {
