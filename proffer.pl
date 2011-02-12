@@ -414,6 +414,7 @@ sub irssi_send {
 	my $file = $files[$pack++];
 	$file->{'downloads'}++;
 	my $name = $file->{'name'};
+	$file = $file->{'file'};
 
 	irssi_reply($server, $nick, "Sending you file $name. Resume supported.");
 	$server->command("dcc send $nick \"$file\"");
