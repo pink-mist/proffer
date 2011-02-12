@@ -7,6 +7,7 @@ use feature ':5.10';
 use Text::ParseWords;
 use Cwd 'abs_path';
 use File::Basename;
+use File::HomeDir;
 
 use Data::Dumper;
 
@@ -75,6 +76,7 @@ sub do_add {
 	my ($path, $msg) = @$data;
 	if (not defined $path) { return undef; }
 	print "Debug: $path" if $debug;
+	if ($path =~ /^~/) { my $home = File::HomeDir->my_home(); $path =~ s/^~/$home/; }
 	$path = abs_path($path);
 
 	my @return = ();
