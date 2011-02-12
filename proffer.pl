@@ -67,8 +67,9 @@ Usage:
  * \002/proffer_list\002 -- list the files on the bot
 \002---------------------------------------------------------------------------------
 END
-  chomp($introstr);
+	chomp($introstr);
 	printf($introstr, $VERSION);
+	read_state();
 }
 
 sub do_add {
@@ -202,6 +203,44 @@ sub byte_suffix_dec {
 	return "$size$suffix";
 }
 
+sub save_state {
+	my $state_file;
+	if (HAVE_IRSSI) { $state_file = Irssi::get_irssi_dir() . '/proffer.state'; }
+	else { $state_file = File::HomeDir->my_home() . '/.proffer.state'; }
+
+	open (my $fh, '>', $state_file);
+	print $fh join("\n",
+			$state->{'transferred'},
+			$state->{'record_speed'},
+			$state->{'record_transfer'},
+			map {$_->{'downloads'} . " " . $_->{'file'}} @files);
+	close ($fh);
+}
+
+sub read_state {
+	my $state_file;
+	if (HAVE_IRSSI) { $state_file = Irssi::get_irssi_dir() . '/proffer.state'; }
+	else { $state_file = File::HomeDir->my_home() . '/.proffer.state'; }
+	if (!-f $state_file) { return; }
+
+	open (my $fh, '<', $state_file);
+	my @lines = <$fh>;
+	close ($fh);
+	chomp(@lines);
+
+	$state->{'transferred'}     = shift @lines;
+	$state->{'record_speed'}    = shift @lines;
+	$state->{'record_transfer'} = shift @lines;
+
+	foreach my $line (@lines) {
+		if ($line =~ /^(\d+) (.*)$/) {
+			my $dls = $1; my $file = $2;
+			do_add([$file]); $files[$#files]->{'downloads'} = $dls;
+		}
+		else { die "Could not properly parse state file $state_file. Has it been corrupted?"; }
+	}
+}
+
 sub irssi_init {
 	Irssi::settings_add_str(   'proffer', 'proffer_channels',    $channels);
 	Irssi::settings_add_int(   'proffer', 'proffer_slots',       $slots);
@@ -275,6 +314,11 @@ if (HAVE_IRSSI) {
 }
 else {
 	die "You need to run this inside irssi!\n";
+}
+
+sub UNLOAD {
+	save_state();
+	Irssi::print("Shutting down proffer.") if $debug;
 }
 
 
