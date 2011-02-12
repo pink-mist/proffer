@@ -348,13 +348,16 @@ sub irssi_list {
 }
 
 sub irssi_reload {
-	$channels    = Irssi::settings_get_str( 'proffer_channels');
-	$slots       = Irssi::settings_get_int( 'proffer_slots');
-	$slots_user  = Irssi::settings_get_int( 'proffer_slots_user');
-	$queues      = Irssi::settings_get_int( 'proffer_queues');
-	$queues_user = Irssi::settings_get_int( 'proffer_queues_user');
-	$hide        = Irssi::settings_get_bool('proffer_hide');
-	Irssi::print('proffer updated.') if $debug;
+	my $val;
+	my $updated = 0;
+
+	$val = Irssi::settings_get_str( 'proffer_channels');    if ($val ne $channels)    { $channels    = $val; $updated = 1; }
+	$val = Irssi::settings_get_int( 'proffer_slots');       if ($val ne $slots)       { $slots       = $val; $updated = 1; }
+	$val = Irssi::settings_get_int( 'proffer_slots_user');  if ($val ne $slots_user)  { $slots_user  = $val; $updated = 1; }
+	$val = Irssi::settings_get_int( 'proffer_queues');      if ($val ne $queues)      { $queues      = $val; $updated = 1; }
+	$val = Irssi::settings_get_int( 'proffer_queues_user'); if ($val ne $queues_user) { $queues_user = $val; $updated = 1; }
+	$val = Irssi::settings_get_bool('proffer_hide');        if ($val ne $hide)        { $hide        = $val; $updated = 1; }
+	Irssi::print('proffer updated.') if $debug && $updated;
 }
 
 sub irssi_handle_pm {
