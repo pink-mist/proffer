@@ -81,7 +81,7 @@ sub do_add {
 	$path = abs_path($path);
 
 	my @return = ();
-	if (file_exists($path)) { @return = ("$path is already in the xdcc list."); }
+	if (file_exists($path)) { @return = ("Couldn't add $path. It is already in the xdcc list."); }
 	elsif (-f $path) {
 		my ($fname, undef, undef) = fileparse($path);
 		push @files, { downloads => 0, file => $path , name => $fname };
@@ -235,7 +235,8 @@ sub read_state {
 	foreach my $line (@lines) {
 		if ($line =~ /^(\d+) (.*)$/) {
 			my $dls = $1; my $file = $2;
-			do_add([$file]); $files[$#files]->{'downloads'} = $dls;
+			my $add_status = do_add([$file]);
+			if ($add_status =~ /^Added /) { $files[$#files]->{'downloads'} = $dls; }
 		}
 		else { die "Could not properly parse state file $state_file. Has it been corrupted?"; }
 	}
