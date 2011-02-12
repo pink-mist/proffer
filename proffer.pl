@@ -4,6 +4,11 @@ use v5.10.0;
 use strict;
 use warnings;
 use feature ':5.10';
+use Text::ParseWords;
+use Cwd qw(realpath);
+use File::Basename;
+
+use Data::Dumper;
 
 our $VERSION = v0.1.0;
 
@@ -16,6 +21,8 @@ our %info = (
 	license     => 'BSD'
 );
 
+# 0.1.0 - First version, only some things functioning
+
 our $debug = 1;
 
 #default values
@@ -24,6 +31,13 @@ our $slots       = 2;
 our $slots_user  = 1;
 our $queues      = 10;
 our $queues_user = 3;
+
+our @files = ();
+our @queue = ();
+our $state = {
+	transferred => 0,
+	record      => "0.0kB/s"
+};
 
 BEGIN {
 	*HAVE_IRSSI = Irssi->can('command_bind') ? sub {1} : sub {0};
@@ -43,25 +57,114 @@ Usage:
  * \002/set proffer_queues <num>\002 -- number of queues
  * \002/set proffer_queues_user <num>\002 -- number of queues per user
  * \002/proffer_add <dir|file>\002 -- add every file (that isn't already added) in a
-                                  directory or a specific file
+                              directory or a specific file
  * \002/proffer_add_ann <dir|file>\002 -- ditto, but also announce the file-add
  * \002/proffer_announce <num> [msg]\002 -- announce a file with optional message
  * \002/proffer_del <num>\002 -- delete a file from the bot
  * \002/proffer_mov <from> <to>\002 -- move a file from the bot
 \002---------------------------------------------------------------------------------
 END
+  chomp($introstr);
 	printf($introstr, $VERSION);
 }
 
-sub do_add { return "Unimplemented."; }
+sub do_add {
+	my $data = shift;
+	my ($path, $msg) = @$data;
+	if (not defined $path) { return undef; }
+	$path = realpath($path);
 
-sub do_add_ann { return "Unimplemented."; }
+	my @return = ();
+	if ((-f $path) && (not file_exists($path))) {
+		my ($fname, undef, undef) = fileparse($path);
+		push @files, { downloads => 0, file => $path , name => $fname };
+		if (defined $msg) { do_announce( [ scalar(@files), $msg ] ); }
+		@return = ("Added $path.");
+	}
+	elsif (-d $path) {
+		opendir(my $dh, $path) or return "Could not open dir: $path.";
+		my @paths = readdir($dh);
+		closedir($dh);
+		foreach (@paths) { push @return, do_add( [$_, $msg] ); }
+		if (not @paths) { push @return, "No file found in $path."; }
+	}
+	return join("\n", @return);
+}
 
-sub do_announce { return "Unimplemented."; }
+sub file_exists {
+	my $file = shift;
+	if (grep {$_->{'file'} eq $file} @files) { return 1; }
+	return 0;
+}
 
-sub do_del { return "Unimplemented."; }
+sub do_announce {
+	my $data = shift;
+	my ($num, $msg) = @$data;
+	if (HAVE_IRSSI) {
+		foreach my $channel (split(" ", $channels)) {
+			my $server = Irssi::channel_find($channel)->server;
+			if (not $server->{'connected'}) { next; }
+
+			my $file = $files[$num-1]->{'name'};
+			my $nick = $server->{'nick'};
+			my $message = "[$msg] $file - /msg $nick xdcc send #$num";
+			$server->command("MSG $channel $message");
+		}
+	}
+}
+
+sub do_del {
+	my $num = shift;
+	if ($num !~ /^\d+$/) { return undef; }
+
+	my $file = $files[$num-1];
+	delete $files[$num-1];
+	return sprintf("Deleted %s, downloaded %d times.", $file->{'name'}, $file->{'downloads'});
+}
 
 sub do_mov { return "Unimplemented."; }
+
+sub return_list {
+	my $nick = shift;
+	my $msg_beg = <<END;
+** %d packs ** %d of %d slots open, Record: %s
+** Bandwidth usage ** Current: %s, Record: %s
+** To request a file, type "/msg %s xdcc send #x" **
+END
+	my $msg_end = <<END;
+Total Offered: %s  Total transferred: %s
+END
+	chomp($msg_end);
+	my $num = 1;
+	my $total = 0;
+	my @return = map {
+				$total += -s $_->{'file'};
+				sprintf("#%-4d %4d [%4s] %s", $num++, $_->{'downloads'}, byte_suffix(-s $_->{'file'}), $_->{'name'})
+			} @files;
+
+	return sprintf($msg_beg, $num-1, open_slots(), $slots, $state->{'record'}, current_speed(), $state->{'record'}, $nick) .
+			join("\n", @return) .
+			sprintf($msg_end, $total, $state->{'transferred'});
+}
+
+sub current_speed {
+	return "0.0kB/s";
+}
+
+sub open_slots {
+	return 0;
+}
+
+sub byte_suffix {
+	my $size = shift;
+	my $suffix = 'B';
+	if ($size >= 1000) {	$size = int($size/1024); $suffix = 'k';
+		if ($size >= 1000) { $size = int($size/1024); $suffix = 'M';
+			if ($size >= 1000) { $size = int($size/1024); $suffix = 'G';
+				if ($size >= 1000) { $size = int($size/1024); $suffix = 'T';
+	} } } }
+	return "$size$suffix";
+}
 
 sub irssi_init {
 	Irssi::settings_add_str(   'proffer', 'proffer_channels',    $channels);
@@ -70,51 +173,51 @@ sub irssi_init {
 	Irssi::settings_add_int(   'proffer', 'proffer_queues',      $queues);
 	Irssi::settings_add_int(   'proffer', 'proffer_queues_user', $queues_user);
 	Irssi::command_bind(       'proffer_add',                    \&irssi_add);
-	Irssi::command_set_options('proffer_add',                    '+path');
 	Irssi::command_bind(       'proffer_add_ann',                \&irssi_add_ann);
-	Irssi::command_set_options('proffer_add_ann',                '+msg +path');
 	Irssi::command_bind(       'proffer_announce',               \&irssi_announce);
-	Irssi::command_set_options('proffer_announce',               '+num +msg');
 	Irssi::command_bind(       'proffer_del',                    \&irssi_del);
-	Irssi::command_set_options('proffer_del',                    '+num');
 	Irssi::command_bind(       'proffer_mov',                    \&irssi_mov);
-	Irssi::command_set_options('proffer_mov',                    '+from +to');
+	Irssi::command_bind(       'proffer_list',                   \&irssi_list);
 	Irssi::signal_add(         'setup changed',                  \&irssi_reload);
 }
 
 sub irssi_add {
 	my ($data, $server, $witem) = @_;
-	my $parse = Irssi::command_parse_options('proffer_add', $data);
-	my $return = do_add($parse) || "\002proffer:\002 add -- erroneous arguments: $data";
-	Irssi::print($parse);
+	my @parse = ($data);
+	my $return = do_add(\@parse) || "\002proffer:\002 add -- erroneous arguments: $data";
+	Irssi::print($return);
 }
 
 sub irssi_add_ann {
 	my ($data, $server, $witem) = @_;
-	my $parse = Irssi::command_parse_options('proffer_add_ann', $data);
-	my $return = do_add_ann($parse) || "\002proffer:\002 add_ann -- erroneous arguments: $data";
+	my @parse = parse_line(" ", 0, $data);
+	my $return = do_add(\@parse) || "\002proffer:\002 add_ann -- erroneous arguments: $data";
 	Irssi::print($return);
 }
 
 sub irssi_announce {
 	my ($data, $server, $witem) = @_;
-	my $parse = Irssi::command_parse_options('proffer_announce', $data);
-	my $return = do_announce($parse) || "\002proffer:\002 announce -- erroneous arguments: $data";
+	my @parse = parse_line(" ", 0, $data);
+	my $return = do_announce(\@parse) || "\002proffer:\002 announce -- erroneous arguments: $data";
 	Irssi::print($return);
 }
 
 sub irssi_del {
 	my ($data, $server, $witem) = @_;
-	my $parse = Irssi::command_parse_options('proffer_del', $data);
-	my $return = do_del($parse) || "\002proffer:\002 del -- erroneous arguments: $data";
+	my @parse = ($data);
+	my $return = do_del(\@parse) || "\002proffer:\002 del -- erroneous arguments: $data";
 	Irssi::print($return);
 }
 
 sub irssi_mov {
 	my ($data, $server, $witem) = @_;
-	my $parse = Irssi::command_parse_options('proffer_mov', $data);
-	my $return = do_mov($parse) || "\002proffer:\002 mov -- erroneous arguments: $data";
+	my @parse = quotewords(" ", 0, $data);
+	my $return = do_mov(\@parse) || "\002proffer:\002 mov -- erroneous arguments: $data";
 	Irssi::print(do_mov($data));
+}
+
+sub irssi_list {
+	Irssi::print(return_list(''));
 }
 
 sub irssi_reload {
@@ -134,3 +237,6 @@ if (HAVE_IRSSI) {
 else {
 	die "You need to run this inside irssi!\n";
 }
+
+
+
