@@ -197,10 +197,10 @@ sub byte_suffix {
 sub byte_suffix_dec {
 	my $size = shift;
 	my $suffix = 'B';
-	if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'k';
-		if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'M';
-			if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'G';
-				if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'T';
+	if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'kB';
+		if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'MB';
+			if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'GB';
+				if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'TB';
 	} } } }
 	return "$size$suffix";
 }
