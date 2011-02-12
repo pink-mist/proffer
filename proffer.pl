@@ -128,7 +128,22 @@ sub do_del {
 	return sprintf("Deleted %s, downloaded %d times.", $file->{'name'}, $file->{'downloads'});
 }
 
-sub do_mov { return "Unimplemented."; }
+sub do_mov {
+	my $data = shift;
+	print "Debug: $data" if $debug;
+	my ($from, $to) = @$data;
+	if (($from !~ /^\d+$/) || ($to !~ /^\d+$/)) { return undef; }
+	$from--; $to--;
+	if (($from < 0) || ($to < 0) || ($from > $#files) || ($to > $#files)) {
+		return sprintf("Index out of bounds. Must be between %d and %d.", 1, $#files+1); }
+	if ($from == $to) { return "Can't move file to itself."; }
+
+	my $item = splice(@files, $from, 1);
+	my @end = splice(@files, $to);
+	push @files, $item, @end;
+
+	return sprintf("Moved %s to %d.", $item->{'name'}, $to+1);
+}
 
 sub return_list {
 	my $nick = shift;
@@ -232,7 +247,7 @@ sub irssi_mov {
 	my ($data, $server, $witem) = @_;
 	my @parse = quotewords(" ", 0, $data);
 	my $return = do_mov(\@parse) || "\002proffer:\002 mov -- erroneous arguments: $data";
-	Irssi::print(do_mov($data));
+	Irssi::print($return);
 }
 
 sub irssi_list {
