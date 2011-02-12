@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use feature ':5.10';
 use Text::ParseWords;
-use Cwd qw(realpath);
+use Cwd 'abs_path';
 use File::Basename;
 
 use Data::Dumper;
@@ -35,8 +35,9 @@ our $queues_user = 3;
 our @files = ();
 our @queue = ();
 our $state = {
-	transferred => 0,
-	record      => "0.0kB/s"
+	transferred     => 0,
+	record_speed    => 0,
+	record_transfer => 0
 };
 
 BEGIN {
@@ -62,6 +63,7 @@ Usage:
  * \002/proffer_announce <num> [msg]\002 -- announce a file with optional message
  * \002/proffer_del <num>\002 -- delete a file from the bot
  * \002/proffer_mov <from> <to>\002 -- move a file from the bot
+ * \002/proffer_list\002 -- list the files on the bot
 \002---------------------------------------------------------------------------------
 END
   chomp($introstr);
@@ -72,10 +74,12 @@ sub do_add {
 	my $data = shift;
 	my ($path, $msg) = @$data;
 	if (not defined $path) { return undef; }
-	$path = realpath($path);
+	print "Debug: $path" if $debug;
+	$path = abs_path($path);
 
 	my @return = ();
-	if ((-f $path) && (not file_exists($path))) {
+	if (file_exists($path)) { @return = ("$path is already in the xdcc list."); }
+	elsif (-f $path) {
 		my ($fname, undef, undef) = fileparse($path);
 		push @files, { downloads => 0, file => $path , name => $fname };
 		if (defined $msg) { do_announce( [ scalar(@files), $msg ] ); }
@@ -83,11 +87,13 @@ sub do_add {
 	}
 	elsif (-d $path) {
 		opendir(my $dh, $path) or return "Could not open dir: $path.";
-		my @paths = readdir($dh);
+		my @paths = sort grep {!/^\./} readdir($dh);
 		closedir($dh);
-		foreach (@paths) { push @return, do_add( [$_, $msg] ); }
+		#foreach (@paths) { push @return, "Should add: $_"; }
+		foreach (@paths) { push @return, do_add( ["$path/$_", $msg] ); }
 		if (not @paths) { push @return, "No file found in $path."; }
 	}
+	else { @return = ("Could not stat $path."); }
 	return join("\n", @return);
 }
 
@@ -127,28 +133,30 @@ sub do_mov { return "Unimplemented."; }
 sub return_list {
 	my $nick = shift;
 	my $msg_beg = <<END;
-** %d packs ** %d of %d slots open, Record: %s
-** Bandwidth usage ** Current: %s, Record: %s
+** %d packs ** %d of %d slots open, Record: %s/s
+** Bandwidth usage ** Current: %s/s, Record: %s/s
 ** To request a file, type "/msg %s xdcc send #x" **
 END
+
 	my $msg_end = <<END;
 Total Offered: %s  Total transferred: %s
 END
 	chomp($msg_end);
+
 	my $num = 1;
 	my $total = 0;
 	my @return = map {
 				$total += -s $_->{'file'};
-				sprintf("#%-4d %4d [%4s] %s", $num++, $_->{'downloads'}, byte_suffix(-s $_->{'file'}), $_->{'name'})
+				sprintf("#%-4d %4dx [%4s] %s", $num++, $_->{'downloads'}, byte_suffix(-s $_->{'file'}), $_->{'name'})
 			} @files;
 
-	return sprintf($msg_beg, $num-1, open_slots(), $slots, $state->{'record'}, current_speed(), $state->{'record'}, $nick) .
-			join("\n", @return) .
-			sprintf($msg_end, $total, $state->{'transferred'});
+	return sprintf($msg_beg, $num-1, open_slots(), $slots, byte_suffix_dec($state->{'record_speed'}),
+			current_speed(), byte_suffix_dec($state->{'record_transfer'}), $nick) .
+			join("\n", @return, sprintf($msg_end, byte_suffix_dec($total), byte_suffix_dec($state->{'transferred'})));
 }
 
 sub current_speed {
-	return "0.0kB/s";
+	return byte_suffix_dec(0);
 }
 
 sub open_slots {
@@ -158,10 +166,21 @@ sub open_slots {
 sub byte_suffix {
 	my $size = shift;
 	my $suffix = 'B';
-	if ($size >= 1000) {	$size = int($size/1024); $suffix = 'k';
+	if ($size >= 1000) { $size = int($size/1024); $suffix = 'k';
 		if ($size >= 1000) { $size = int($size/1024); $suffix = 'M';
 			if ($size >= 1000) { $size = int($size/1024); $suffix = 'G';
 				if ($size >= 1000) { $size = int($size/1024); $suffix = 'T';
+	} } } }
+	return "$size$suffix";
+}
+
+sub byte_suffix_dec {
+	my $size = shift;
+	my $suffix = 'B';
+	if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'k';
+		if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'M';
+			if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'G';
+				if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'T';
 	} } } }
 	return "$size$suffix";
 }
@@ -217,7 +236,10 @@ sub irssi_mov {
 }
 
 sub irssi_list {
-	Irssi::print(return_list(''));
+	my $nick = '';
+	my $server = Irssi::active_server();
+	if (defined $server) { $nick = $server->{'nick'}; }
+	Irssi::print(return_list($nick));
 }
 
 sub irssi_reload {
