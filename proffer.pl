@@ -24,19 +24,19 @@ our %info = (
 
 # 0.1.0 - First version, only some things functioning
 
-our $debug = 1;
+my $debug = 1;
 
 #default values
-our $channels    = '';
-our $slots       = 2;
-our $slots_user  = 1;
-our $queues      = 10;
-our $queues_user = 3;
-our $hide        = 1;
+my $channels    = '';
+my $slots       = 2;
+my $slots_user  = 1;
+my $queues      = 10;
+my $queues_user = 3;
+my $hide        = 1;
 
-our @files = ();
-our @queue = ();
-our $state = {
+my @files = ();
+my @queue = ();
+my $state = {
 	transferred     => 0,
 	record_speed    => 0,
 	record_transfer => 0
@@ -244,7 +244,51 @@ sub read_state {
 	}
 }
 
+sub do_queue {
+	my ($id, $pack) = @_;
+
+	my $spot = 1;
+	if (grep { ($_->{'id'} eq $id) and ($_{'pack'} eq $pack) } @queue) { return "You already queued pack #$pack."; }
+
+	push @queue, { id => $id, pack => $pack };
+  return sprintf("Added you to the main queue for pack #%d in position %d.", $pack, $#queue);
+}
+
+sub slots_available {
+	if (HAVE_IRSSI) {
+		my @dccs = grep { $_->{'type'} eq 'SEND' } Irssi::Irc::dccs();
+		return $slots - scalar(@dccs);
+	}
+	else { return 0; }
+}
+
+sub user_slots_available {
+	my $id = shift;
+	if (HAVE_IRSSI) {
+		$id =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
+		my @dccs = grep {
+					($_->{'type'}      eq 'SEND') and
+					($_->{'servertag'} eq $tag  ) and
+					($_->{'nick'}      eq $nick ) } Irssi::Irc::dccs();
+		return $slots_user - scalar(@dccs);
+	}
+	else { return 0; }
+}
+
+sub queues_available {
+	return $queues - scalar(@queue);
+}
+
+sub user_queues_available {
+	my $id = shift;
+	my @user_queue = grep {$_->{'id'} eq $id} @queue;
+	return $queues_user - scalar(@user_queue);
+}
+
+
+# Irssi specific routines
 sub irssi_init {
+	require Irssi::Irc;
 	Irssi::settings_add_str(   'proffer', 'proffer_channels',    $channels);
 	Irssi::settings_add_int(   'proffer', 'proffer_slots',       $slots);
 	Irssi::settings_add_int(   'proffer', 'proffer_slots_user',  $slots_user);
@@ -345,6 +389,7 @@ sub irssi_handle_xdcc {
 		when (/^xdcc info #?(\d+)$/i) { my $pack = $1; }
 		when (/^xdcc stop$/i)         { }
 		when (/^xdcc cancel$/i)       { }
+		when (/^xdcc remove$/i)       { }
 	}
 }
 
@@ -357,8 +402,21 @@ sub irssi_reply {
 }
 
 sub irssi_try_send {
-	my ($server, $nick, $msg) = @_;
+	my ($server, $nick, $pack) = @_;
+	my $tag = $server->{'tag'}; # use "$tag, $nick" to identify a specific nick on a specific server
 
+	if (slots_available() and user_slots_available("$tag, $nick")) { irssi_send($server, $nick, $pack); }
+	elsif (queues_available() and user_queues_available("$tag, $nick")) { irssi_reply($server, $nick, do_queue("$tag, $nick", $pack)); }
+}
+
+sub irssi_send {
+	my ($server, $nick, $pack) = @_;
+	my $file = $files[$pack++];
+	$file->{'downloads'}++;
+	my $name = $file->{'name'};
+
+	irssi_reply($server, $nick, "Sending you file $name. Resume supported.");
+	$server->command("dcc send $nick \"$file\"");
 }
 
 if (HAVE_IRSSI) {
