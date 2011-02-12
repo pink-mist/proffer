@@ -302,6 +302,11 @@ sub irssi_init {
 	Irssi::command_bind(       'proffer_list',                   \&irssi_list);
 	Irssi::signal_add(         'setup changed',                  \&irssi_reload);
 	Irssi::signal_add_first(   'message private',                \&irssi_handle_pm);
+	Irssi::signal_add(         'dcc closed',                     \&irssi_dcc_update);
+	Irssi::signal_add(         'dcc error connect',              \&irssi_dcc_update);
+	Irssi::signal_add(         'dcc transfer update',            \&irssi_dcc_update);
+	Irssi::signal_add(         'dcc error file open',            \&irssi_dcc_update);
+	Irssi::signal_add(         'dcc error send exists',          \&irssi_dcc_update);
 	irssi_reload();
 }
 
@@ -414,12 +419,44 @@ sub irssi_try_send {
 sub irssi_send {
 	my ($server, $nick, $pack) = @_;
 	my $file = $files[$pack++];
+	if (not defined $file) { irssi_reply($server, $nick, "Invalid pack number. Try again."); return; }
 	$file->{'downloads'}++;
 	my $name = $file->{'name'};
 	$file = $file->{'file'};
 
 	irssi_reply($server, $nick, "Sending you file $name. Resume supported.");
 	$server->command("dcc send $nick \"$file\"");
+}
+
+sub irssi_dcc_update {
+	#ignore input parameter, we want to go through all dccs anyway
+	my @dccs = grep { $_->{'type'} eq 'SEND' } Irssi::Irc::dccs();
+
+	#calculate speeds
+	my $cum_speed = 0; #fun to shorten cumulative as cum :3
+	foreach my $dcc (@dccs) {
+		my $used_time = (time - $dcc->{'starttime'});
+		#can't really trust the first couple of seconds of transfer speed (and it must be above 0, or we'll E_DIVZERO)
+		my $speed = ($used_time > 5) ? (($dcc->{'transfd'} - $dcc->{'skipped'}) / $used_time) : 0;
+		$cum_speed += $speed;
+		if ($speed > $state->{'record_transfer'}) { $state->{'record_transfer'} = $speed; }
+	}
+	if ($cum_speed > $state->{'record_speed'}) { $state->{'record_speed'} = $cum_speed; }
+
+	#see if any send slots are available
+	if (slots_available()) {
+		my $num = 0;
+		foreach my $queue (@queue) {
+			if (user_slots_available($queue->{'id'})) {
+				my $add = splice(@queue, $num, 1);
+				$add->{'id'} =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
+				my $server = Irssi::server_find_tag($tag);
+				irssi_send($server, $nick, $add->{'pack'});
+				last;
+			}
+			$num++;
+		}
+	}
 }
 
 if (HAVE_IRSSI) {
