@@ -325,8 +325,7 @@ sub irssi_add {
 
 sub irssi_add_ann {
 	my ($data, $server, $witem) = @_;
-	my @parse = parse_line(" ", 0, $data);
-	my $return = do_add(\@parse) || "\002proffer:\002 add_ann -- erroneous arguments: $data";
+	my $return = do_add([$data, "added"]) || "\002proffer:\002 add_ann -- erroneous arguments: $data";
 	Irssi::print($return);
 }
 
