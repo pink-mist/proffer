@@ -46,6 +46,7 @@ my $state = {
 	record_speed    => 0,
 	record_transfer => 0
 };
+my @renames = ();
 
 BEGIN {
 	*HAVE_IRSSI = Irssi->can('command_bind') ? sub {1} : sub {0};
@@ -281,10 +282,12 @@ sub user_slots_available {
 	my $id = shift;
 	if (HAVE_IRSSI) {
 		$id =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
+		my @ids = map { $_->{'id'} } grep { $_->{'tag'} eq $tag and $_->{'nick'} eq $nick } @renames;
 		my @dccs = grep {
-					($_->{'type'}      eq 'SEND') and
-					($_->{'servertag'} eq $tag  ) and
-					($_->{'nick'}      eq $nick ) } Irssi::Irc::dccs();
+					(($_->{'type'} eq 'SEND') and ($_->{'servertag'} eq $tag) and ($_->{'nick'} eq $nick )) or
+					($_->{'_irssi'} ~~ [@ids])
+				} Irssi::Irc::dccs();
+
 		return max($slots_user - scalar(@dccs),0);
 	}
 	else { return 0; }
@@ -491,7 +494,12 @@ sub irssi_send {
 }
 
 sub irssi_dcc_update {
-	#ignore input parameter, we want to go through all dccs anyway
+	my $dcc = shift;
+
+	#track renames
+	unless (grep { $_->{'id'} eq $dcc->{'_irssi'} } @renames) {
+		push @renames, { 'tag' => $dcc->{'servertag'}, 'id' => $dcc->{'_irssi'}, 'nick' => $dcc->{'nick'} };
+	}
 
 	#calculate speeds
 	irssi_current_speed();
@@ -518,6 +526,7 @@ sub irssi_current_speed {
 sub irssi_dcc_closed {
 	my $closed = shift;
 	$state->{'transferred'} += ($closed->{'transfd'} - $closed->{'skipped'});
+	@renames = grep { $_->{'id'} ne $closed->{'_irssi'} } @renames;
 	Irssi::timeout_add_once(10, sub {  Irssi::signal_emit('proffer next queue'); }, undef);
 }
 
@@ -572,7 +581,14 @@ sub irssi_handle_nick {
 	my $tag = $server->{'tag'};
 	my $oldid = "$tag, $oldnick"; my $newid = "$tag, $newnick";
 	my $oldid_re = quotemeta($oldid);
-	map { $_->{'id'} =~ s/$oldid_re/$newid/; } @queue;
+
+	#update queue
+	map { $_->{'id'} =~ s/^$oldid_re$/$newid/; } @queue;
+
+	#update @renames list with $newnick
+	map {
+			$_->{'nick'} = $newnick
+		} grep { $_->{'tag'} eq $tag and $_->{'nick'} eq $oldnick } @renames;
 }
 
 if (HAVE_IRSSI) {
