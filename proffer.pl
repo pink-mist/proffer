@@ -167,13 +167,13 @@ sub do_mov {
 sub return_list {
 	my $nick = shift;
 	my $msg_beg = <<END;
-** %d packs ** %d of %d slots open, Record: %s/s
-** Bandwidth usage ** Current: %s/s, Record: %s/s
-** To request a file, type "/msg %s xdcc send #x" **
+**  %d packs  **  %d of %d slots open, Record: %s/s
+**  Bandwidth usage  **  Current: %s/s, Record: %s/s
+**  To request a file, type "/msg %s xdcc send #x"  **
 END
 
 	my $msg_end = <<END;
-Total Offered: %s  Total transferred: %s
+Total offered: %s  Total transferred: %s
 END
 	chomp($msg_end);
 
@@ -268,7 +268,7 @@ sub do_queue {
 sub slots_available {
 	if (HAVE_IRSSI) {
 		my @dccs = grep { $_->{'type'} eq 'SEND' } Irssi::Irc::dccs();
-		return $slots - scalar(@dccs);
+		return max($slots - scalar(@dccs), 0);
 	}
 	else { return 0; }
 }
@@ -281,19 +281,19 @@ sub user_slots_available {
 					($_->{'type'}      eq 'SEND') and
 					($_->{'servertag'} eq $tag  ) and
 					($_->{'nick'}      eq $nick ) } Irssi::Irc::dccs();
-		return $slots_user - scalar(@dccs);
+		return max($slots_user - scalar(@dccs),0);
 	}
 	else { return 0; }
 }
 
 sub queues_available {
-	return $queues - scalar(@queue);
+	return max($queues - scalar(@queue),0);
 }
 
 sub user_queues_available {
 	my $id = shift;
 	my @user_queue = grep {$_->{'id'} eq $id} @queue;
-	return $queues_user - scalar(@user_queue);
+	return max($queues_user - scalar(@user_queue),0);
 }
 
 sub pack_info {
@@ -327,6 +327,8 @@ sub remove_queues {
 	if ($num != scalar(@queue)) { return sprintf("Removed you from %d queues.", $num-scalar(@queue)); }
 	else { return "You don't appear to be in a queue."; }
 }
+
+sub max { return ($_[0] > $_[1]) ? $_[0] : $_[1]; }
 
 
 # Irssi specific routines
