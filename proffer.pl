@@ -176,11 +176,8 @@ END
 }
 
 sub current_speed {
-	return byte_suffix_dec(0);
-}
-
-sub open_slots {
-	return 0;
+	if (HAVE_IRSSI) { return byte_suffix_dec(irssi_current_speed()); }
+	else { return byte_suffix_dec(0); }
 }
 
 sub byte_suffix {
@@ -433,9 +430,17 @@ sub irssi_send {
 
 sub irssi_dcc_update {
 	#ignore input parameter, we want to go through all dccs anyway
-	my @dccs = grep { $_->{'type'} eq 'SEND' } Irssi::Irc::dccs();
 
 	#calculate speeds
+	irssi_current_speed();
+
+	#see if any send slots are available
+	irssi_next_queue();
+}
+
+sub irssi_current_speed {
+	my @dccs = grep { $_->{'type'} eq 'SEND' } Irssi::Irc::dccs();
+
 	my $cum_speed = 0; #fun to shorten cumulative as cum :3
 	foreach my $dcc (@dccs) {
 		my $used_time = (time - $dcc->{'starttime'});
@@ -445,9 +450,7 @@ sub irssi_dcc_update {
 		if ($speed > $state->{'record_transfer'}) { $state->{'record_transfer'} = $speed; }
 	}
 	if ($cum_speed > $state->{'record_speed'}) { $state->{'record_speed'} = $cum_speed; }
-
-	#see if any send slots are available
-	irssi_next_queue();
+	return $cum_speed;
 }
 
 sub irssi_dcc_closed {
