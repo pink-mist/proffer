@@ -163,14 +163,14 @@ Total Offered: %s  Total transferred: %s
 END
 	chomp($msg_end);
 
-	my $num = 1;
+	my $num = 0;
 	my $total = 0;
 	my @return = map {
 				$total += -s $_->{'file'};
-				sprintf("#%-4d %4dx [%4s] %s", $num++, $_->{'downloads'}, byte_suffix(-s $_->{'file'}), $_->{'name'})
+				sprintf("#%-4d %4dx [%4s] %s", ++$num, $_->{'downloads'}, byte_suffix(-s $_->{'file'}), $_->{'name'})
 			} @files;
 
-	return sprintf($msg_beg, $num-1, open_slots(), $slots, byte_suffix_dec($state->{'record_speed'}),
+	return sprintf($msg_beg, $num, slots_available(), $slots, byte_suffix_dec($state->{'record_speed'}),
 			current_speed(), byte_suffix_dec($state->{'record_transfer'}), $nick) .
 			join("\n", @return, sprintf($msg_end, byte_suffix_dec($total), byte_suffix_dec($state->{'transferred'})));
 }
@@ -247,7 +247,7 @@ sub read_state {
 sub do_queue {
 	my ($id, $pack) = @_;
 
-	if (defined grep { ($_->{'id'} eq $id) and ($_{'pack'} eq $pack) } @queue) { return "You already queued pack #$pack."; }
+	if (grep { ($_->{'id'} eq $id) and ($_->{'pack'} eq $pack) } @queue) { return "You already queued pack #$pack."; }
 
 	push @queue, { id => $id, pack => $pack };
   return sprintf("Added you to the main queue for pack #%d in position %d.", $pack, $#queue+1);
@@ -300,13 +300,16 @@ sub irssi_init {
 	Irssi::command_bind(       'proffer_del',                    \&irssi_del);
 	Irssi::command_bind(       'proffer_mov',                    \&irssi_mov);
 	Irssi::command_bind(       'proffer_list',                   \&irssi_list);
+	Irssi::command_bind(       'proffer_queue',                  \&irssi_queue);
 	Irssi::signal_add(         'setup changed',                  \&irssi_reload);
 	Irssi::signal_add_first(   'message private',                \&irssi_handle_pm);
-	Irssi::signal_add(         'dcc closed',                     \&irssi_dcc_update);
-	Irssi::signal_add(         'dcc error connect',              \&irssi_dcc_update);
 	Irssi::signal_add(         'dcc transfer update',            \&irssi_dcc_update);
-	Irssi::signal_add(         'dcc error file open',            \&irssi_dcc_update);
-	Irssi::signal_add(         'dcc error send exists',          \&irssi_dcc_update);
+	Irssi::signal_add_last(    'dcc closed',                     \&irssi_dcc_closed);
+	Irssi::signal_add_last(    'dcc error connect',              \&irssi_dcc_closed);
+	Irssi::signal_add_last(    'dcc error file open',            \&irssi_dcc_closed);
+	Irssi::signal_add_last(    'dcc error send exists',          \&irssi_dcc_closed);
+	Irssi::signal_register(  { 'proffer next queue' =>           [] });
+	Irssi::signal_add(         'proffer next queue',             \&irssi_next_queue);
 	irssi_reload();
 }
 
@@ -418,7 +421,7 @@ sub irssi_try_send {
 
 sub irssi_send {
 	my ($server, $nick, $pack) = @_;
-	my $file = $files[$pack++];
+	my $file = $files[--$pack];
 	if (not defined $file) { irssi_reply($server, $nick, "Invalid pack number. Try again."); return; }
 	$file->{'downloads'}++;
 	my $name = $file->{'name'};
@@ -444,18 +447,39 @@ sub irssi_dcc_update {
 	if ($cum_speed > $state->{'record_speed'}) { $state->{'record_speed'} = $cum_speed; }
 
 	#see if any send slots are available
+	irssi_next_queue();
+}
+
+sub irssi_dcc_closed {
+	my $closed = shift;
+	$state->{'transferred'} += ($closed->{'transfd'} - $closed->{'skipped'});
+	Irssi::timeout_add_once(10, sub {  Irssi::signal_emit('proffer next queue'); }, undef);
+}
+
+sub irssi_next_queue {
 	if (slots_available()) {
 		my $num = 0;
 		foreach my $queue (@queue) {
 			if (user_slots_available($queue->{'id'})) {
-				my $add = splice(@queue, $num, 1);
+				printf("Sending queue #%d to %s.", $num+1, $queue->{'id'});
+				my ($add) = splice(@queue, $num, 1);
 				$add->{'id'} =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
 				my $server = Irssi::server_find_tag($tag);
 				irssi_send($server, $nick, $add->{'pack'});
 				last;
 			}
+			else { printf("Can't send to %s.", $queue->{'id'}) if ($debug > 2); }
 			$num++;
 		}
+	}
+	else { print "irssi_next_queue: no slots available :(" if ($debug > 2); }
+	print "irssi_next_queue: finished." if ($debug > 2);
+}
+
+sub irssi_queue {
+	my $num = 0;
+	foreach my $queue (@queue) {
+		printf("Queue %d: %s -> %d (%s)", ++$num, $queue->{'id'}, $queue->{'pack'}, $files[$queue->{'pack'}-1]->{'name'});
 	}
 }
 
