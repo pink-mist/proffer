@@ -312,7 +312,10 @@ sub pack_info {
 
 sub update_file {
 	my $lines = return_list(Irssi::active_server()->{'nick'});
-  open(my $fh, '>', $list_file);
+	my $fh;
+	my $fname = $list_file; my $home = File::HomeDir->my_home();
+	$fname =~ s/^~/$home/;
+	if (not open($fh, '>', $fname)) { warn "Could not open file $list_file: $!"; return; };
 	print $fh $lines;
 	close $fh;
 }
@@ -443,7 +446,6 @@ sub irssi_handle_xdcc {
 		when (/^xdcc list$/i)         { irssi_reply($server, $nick, ($list_deny ne '') ? "XDCC LIST DENIED. $list_deny" : return_list($server->{'nick'})) }
 		when (/^xdcc send #?(\d+)$/i) { my $pack = $1; irssi_try_send($server, $nick, $pack); }
 		when (/^xdcc info #?(\d+)$/i) { my $pack = $1; irssi_reply($server, $nick, pack_info($pack)); }
-		when (/^xdcc stop$/i)         { }
 		when (/^xdcc cancel$/i)       { irssi_reply($server, $nick, irssi_cancel_sends($server, $nick)); }
 		when (/^xdcc remove$/i)       { irssi_reply($server, $nick, remove_queues($id)); }
 	}
