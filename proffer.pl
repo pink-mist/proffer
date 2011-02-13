@@ -418,6 +418,7 @@ sub irssi_try_send {
 
 	if (slots_available() and user_slots_available("$tag, $nick")) { irssi_send($server, $nick, $pack); }
 	elsif (queues_available() and user_queues_available("$tag, $nick")) { irssi_reply($server, $nick, do_queue("$tag, $nick", $pack)); }
+	else { irssi_reply($server, $nick, "No more queues available for you."); }
 }
 
 sub irssi_send {
