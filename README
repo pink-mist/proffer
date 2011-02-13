@@ -5,6 +5,8 @@ proffer.pl is an irssi script to provide xdcc bot functionality created by pink_
 <http://iroffer.org/>. If you want a more efficient xdcc bot, that is a better bet, as
 this is after all just a small script running in irssi.
 
+Website: http://github.com/pink-mist/proffer
+
         ===== Installation =====
 
 Load in irssi by placing the script or a symlink to it in `~/.irssi/scripts/´ and in
