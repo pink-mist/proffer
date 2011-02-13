@@ -70,7 +70,7 @@ Usage:
 \002---------------------------------------------------------------------------------
 END
 	chomp($introstr);
-	printf($introstr, $VERSION);
+	printf($introstr, $VERSION) unless $hide;
 	read_state();
 }
 
@@ -78,7 +78,7 @@ sub do_add {
 	my $data = shift;
 	my ($path, $msg) = @$data;
 	if (not defined $path) { return undef; }
-	print "Debug: $path" if $debug;
+	print "Debug: $path" if ($debug > 1);
 	if ($path =~ /^~/) { my $home = File::HomeDir->my_home(); $path =~ s/^~/$home/; }
 	$path = abs_path($path);
 
@@ -135,7 +135,7 @@ sub do_del {
 
 sub do_mov {
 	my $data = shift;
-	print "Debug: $data" if $debug;
+	print "Debug: $data" if ($debug > 1);
 	my ($from, $to) = @$data;
 	if (($from !~ /^\d+$/) || ($to !~ /^\d+$/)) { return undef; }
 	$from--; $to--;
@@ -464,7 +464,7 @@ sub irssi_next_queue {
 		my $num = 0;
 		foreach my $queue (@queue) {
 			if (user_slots_available($queue->{'id'})) {
-				printf("Sending queue #%d to %s.", $num+1, $queue->{'id'});
+				printf("Sending queue #%d to %s.", $num+1, $queue->{'id'}) unless $hide;
 				my ($add) = splice(@queue, $num, 1);
 				$add->{'id'} =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
 				my $server = Irssi::server_find_tag($tag);
@@ -484,6 +484,7 @@ sub irssi_queue {
 	foreach my $queue (@queue) {
 		printf("Queue %d: %s -> %d (%s)", ++$num, $queue->{'id'}, $queue->{'pack'}, $files[$queue->{'pack'}-1]->{'name'});
 	}
+	print "proffer: End of queue.";
 }
 
 if (HAVE_IRSSI) {
