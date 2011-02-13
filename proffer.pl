@@ -28,14 +28,15 @@ our %info = (
 my $debug = 1;
 
 #default values
-my $channels    = '';
-my $slots       = 2;
-my $slots_user  = 1;
-my $queues      = 10;
-my $queues_user = 3;
-my $hide        = 1;
-my $list_deny   = '';
-my $list_file   = '';
+my $channels      = '';
+my $slots         = 2;
+my $slots_user    = 1;
+my $queues        = 10;
+my $queues_user   = 3;
+my $hide          = 1;
+my $list_deny     = '';
+my $list_file     = '';
+my $restrict_send = 0;
 
 my @files = ();
 my @queue = ();
@@ -65,6 +66,8 @@ Usage:
  * \002/set proffer_hide\002 -- set to 1 to hide xdcc commands (default is 1)
  * \002/set proffer_list_deny <msg>\002 -- set to deny xdcc lists and respond instead with msg
  * \002/set proffer_list_file <file>\002 -- set to keep file updated with current xdcc list
+ * \002/set proffer_restrict_send <val>\002 -- enable to restrict xdcc functionality to nicks
+                                       in a channel with you
  * \002/proffer_add <dir|file>\002 -- add every file (that isn't already added) in a
                               directory or a specific file
  * \002/proffer_add_ann <dir|file>\002 -- ditto, but also announce the file-add
@@ -334,30 +337,35 @@ sub max { return ($_[0] > $_[1]) ? $_[0] : $_[1]; }
 # Irssi specific routines
 sub irssi_init {
 	require Irssi::Irc;
-	Irssi::settings_add_str(   'proffer', 'proffer_channels',    $channels);
-	Irssi::settings_add_int(   'proffer', 'proffer_slots',       $slots);
-	Irssi::settings_add_int(   'proffer', 'proffer_slots_user',  $slots_user);
-	Irssi::settings_add_int(   'proffer', 'proffer_queues',      $queues);
-	Irssi::settings_add_int(   'proffer', 'proffer_queues_user', $queues_user);
-	Irssi::settings_add_bool(  'proffer', 'proffer_hide',        $hide);
-	Irssi::settings_add_str(   'proffer', 'proffer_list_deny',   $list_deny);
-	Irssi::settings_add_str(   'proffer', 'proffer_list_file',   $list_file);
-	Irssi::command_bind(       'proffer_add',                    \&irssi_add);
-	Irssi::command_bind(       'proffer_add_ann',                \&irssi_add_ann);
-	Irssi::command_bind(       'proffer_announce',               \&irssi_announce);
-	Irssi::command_bind(       'proffer_del',                    \&irssi_del);
-	Irssi::command_bind(       'proffer_mov',                    \&irssi_mov);
-	Irssi::command_bind(       'proffer_list',                   \&irssi_list);
-	Irssi::command_bind(       'proffer_queue',                  \&irssi_queue);
-	Irssi::signal_add(         'setup changed',                  \&irssi_reload);
-	Irssi::signal_add_first(   'message private',                \&irssi_handle_pm);
-	Irssi::signal_add(         'dcc transfer update',            \&irssi_dcc_update);
-	Irssi::signal_add_last(    'dcc closed',                     \&irssi_dcc_closed);
-	Irssi::signal_add_last(    'dcc error connect',              \&irssi_dcc_closed);
-	Irssi::signal_add_last(    'dcc error file open',            \&irssi_dcc_closed);
-	Irssi::signal_add_last(    'dcc error send exists',          \&irssi_dcc_closed);
-	Irssi::signal_register(  { 'proffer next queue' =>           [] });
-	Irssi::signal_add(         'proffer next queue',             \&irssi_next_queue);
+	Irssi::settings_add_str(   'proffer', 'proffer_channels',      $channels);
+	Irssi::settings_add_int(   'proffer', 'proffer_slots',         $slots);
+	Irssi::settings_add_int(   'proffer', 'proffer_slots_user',    $slots_user);
+	Irssi::settings_add_int(   'proffer', 'proffer_queues',        $queues);
+	Irssi::settings_add_int(   'proffer', 'proffer_queues_user',   $queues_user);
+	Irssi::settings_add_bool(  'proffer', 'proffer_hide',          $hide);
+	Irssi::settings_add_str(   'proffer', 'proffer_list_deny',     $list_deny);
+	Irssi::settings_add_str(   'proffer', 'proffer_list_file',     $list_file);
+	Irssi::settings_add_bool(  'proffer', 'proffer_restrict_send', $restrict_send);
+	Irssi::command_bind(       'proffer_add',                      \&irssi_add);
+	Irssi::command_bind(       'proffer_add_ann',                  \&irssi_add_ann);
+	Irssi::command_bind(       'proffer_announce',                 \&irssi_announce);
+	Irssi::command_bind(       'proffer_del',                      \&irssi_del);
+	Irssi::command_bind(       'proffer_mov',                      \&irssi_mov);
+	Irssi::command_bind(       'proffer_list',                     \&irssi_list);
+	Irssi::command_bind(       'proffer_queue',                    \&irssi_queue);
+	Irssi::signal_add(         'setup changed',                    \&irssi_reload);
+	Irssi::signal_add_first(   'message private',                  \&irssi_handle_pm);
+	Irssi::signal_add(         'dcc transfer update',              \&irssi_dcc_update);
+	Irssi::signal_add_last(    'dcc closed',                       \&irssi_dcc_closed);
+	Irssi::signal_add_last(    'dcc error connect',                \&irssi_dcc_closed);
+	Irssi::signal_add_last(    'dcc error file open',              \&irssi_dcc_closed);
+	Irssi::signal_add_last(    'dcc error send exists',            \&irssi_dcc_closed);
+	Irssi::signal_register(  { 'proffer next queue' =>             [] });
+	Irssi::signal_add(         'proffer next queue',               \&irssi_next_queue);
+	Irssi::signal_add(         'message part',                     \&irssi_check_queue);
+	Irssi::signal_add(         'message kick',                     \&irssi_check_queue);
+	Irssi::signal_add(         'message quit',                     \&irssi_check_queue);
+	Irssi::signal_add(         'message nick',                     \&irssi_handle_nick);
 	irssi_reload();
 }
 
@@ -405,14 +413,15 @@ sub irssi_reload {
 	my $val;
 	my $updated = 0;
 
-	$val = Irssi::settings_get_str( 'proffer_channels');    if ($val ne $channels)    { $channels    = $val; $updated = 1; }
-	$val = Irssi::settings_get_int( 'proffer_slots');       if ($val ne $slots)       { $slots       = $val; $updated = 1; }
-	$val = Irssi::settings_get_int( 'proffer_slots_user');  if ($val ne $slots_user)  { $slots_user  = $val; $updated = 1; }
-	$val = Irssi::settings_get_int( 'proffer_queues');      if ($val ne $queues)      { $queues      = $val; $updated = 1; }
-	$val = Irssi::settings_get_int( 'proffer_queues_user'); if ($val ne $queues_user) { $queues_user = $val; $updated = 1; }
-	$val = Irssi::settings_get_bool('proffer_hide');        if ($val ne $hide)        { $hide        = $val; $updated = 1; }
-	$val = Irssi::settings_get_str( 'proffer_list_deny');   if ($val ne $list_deny)   { $list_deny   = $val; $updated = 1; }
-	$val = Irssi::settings_get_str( 'proffer_list_file');   if ($val ne $list_file)   { $list_file   = $val; $updated = 1; }
+	$val = Irssi::settings_get_str( 'proffer_channels');      if ($val ne $channels)      { $channels      = $val; $updated = 1; }
+	$val = Irssi::settings_get_int( 'proffer_slots');         if ($val ne $slots)         { $slots         = $val; $updated = 1; }
+	$val = Irssi::settings_get_int( 'proffer_slots_user');    if ($val ne $slots_user)    { $slots_user    = $val; $updated = 1; }
+	$val = Irssi::settings_get_int( 'proffer_queues');        if ($val ne $queues)        { $queues        = $val; $updated = 1; }
+	$val = Irssi::settings_get_int( 'proffer_queues_user');   if ($val ne $queues_user)   { $queues_user   = $val; $updated = 1; }
+	$val = Irssi::settings_get_bool('proffer_hide');          if ($val ne $hide)          { $hide          = $val; $updated = 1; }
+	$val = Irssi::settings_get_str( 'proffer_list_deny');     if ($val ne $list_deny)     { $list_deny     = $val; $updated = 1; }
+	$val = Irssi::settings_get_str( 'proffer_list_file');     if ($val ne $list_file)     { $list_file     = $val; $updated = 1; }
+	$val = Irssi::settings_get_bool('proffer_restrict_send'); if ($val ne $restrict_send) { $restrict_send = $val; $updated = 1; }
 	Irssi::print('proffer updated.') if $debug && $updated;
 	update_file() if ($list_file ne '') && $updated;
 }
@@ -420,7 +429,7 @@ sub irssi_reload {
 sub irssi_handle_pm {
 	my ($server, $msg, $nick, $host) = @_;
   if ($msg =~ /^xdcc /i) {
-		if (irssi_check_channels($server, $nick)) {
+		if ((not $restrict_send) || (irssi_check_channels($server, $nick))) {
 			Irssi::signal_stop() if $hide;
 			my $return = irssi_handle_xdcc($server, $nick, $msg);
 			Irssi::print($return) if defined $return;
@@ -433,9 +442,7 @@ sub irssi_check_channels {
 
 	#go through each channel that is also in $channels variable
 	my @channels = grep { $_->{'name'} ~~ [split(' ', $channels)] } $server->channels();
-	foreach my $chan (@channels) {
-		if ($chan->nick_find($nick)) { return 1; }
-	}
+	map { $_->nick_find($nick) and return 1; } @channels;
 
 	return 0;
 }
@@ -456,11 +463,8 @@ sub irssi_handle_xdcc {
 sub irssi_reply {
 	my ($server, $nick, $msg) = @_;
 
-	foreach (split("\n", $msg)) {
-		if ($_ eq '') { next; }
-		$server->command("NOTICE $nick $_");
-		#$server->send_message($nick, $_, 1);
-	}
+	#if the line of the message isn't empty, /notice it to $nick
+	map { $_ eq '' or $server->command("NOTICE $nick $_"); } split("\n", $msg);
 }
 
 sub irssi_try_send {
@@ -539,9 +543,9 @@ sub irssi_next_queue {
 
 sub irssi_queue {
 	my $num = 0;
-	foreach my $queue (@queue) {
-		printf("Queue %d: %s -> %d (%s)", ++$num, $queue->{'id'}, $queue->{'pack'}, $files[$queue->{'pack'}-1]->{'name'});
-	}
+	map {
+			printf("Queue %d: %s -> %d (%s)", ++$num, $_->{'id'}, $_->{'pack'}, $files[$_->{'pack'}-1]->{'name'});
+		} @queue;
 	print "proffer: End of queue.";
 }
 
@@ -551,9 +555,23 @@ sub irssi_cancel_sends {
 				$_->{'servertag'} eq $server->{'tag'} and
 				$_->{'nick'} eq $nick } Irssi::Irc::dccs();
 
-	foreach my $dcc (@dccs) { $dcc->destroy(); }
+	map { $_->destroy(); } @dccs;
 	if (scalar(@dccs)) { return sprintf("Aborted %d sends.", scalar(@dccs)); }
 	else { return "You don't have a transfer running."; }
+}
+
+sub irssi_check_queue {
+	if ($restrict_send) {
+		@queue = grep { $_->{'id'} =~ /^(.*), (.*)$/ and irssi_check_channels(Irssi::server_find_tag($1), $2)  } @queue;
+	}
+}
+
+sub irssi_handle_nick {
+	my ($server, $newnick, $oldnick, $host) = @_;
+	my $tag = $server->{'tag'};
+	my $oldid = "$tag, $oldnick"; my $newid = "$tag, $newnick";
+	my $oldid_re = quotemeta($oldid);
+	map { $_->{'id'} =~ s/$oldid_re/$newid/; } @queue;
 }
 
 if (HAVE_IRSSI) {
