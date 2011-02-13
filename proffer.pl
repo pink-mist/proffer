@@ -34,6 +34,8 @@ my $slots_user  = 1;
 my $queues      = 10;
 my $queues_user = 3;
 my $hide        = 1;
+my $list_deny   = '';
+my $list_file   = '';
 
 my @files = ();
 my @queue = ();
@@ -61,6 +63,8 @@ Usage:
  * \002/set proffer_queues <num>\002 -- number of queues
  * \002/set proffer_queues_user <num>\002 -- number of queues per user
  * \002/set proffer_hide\002 -- set to 1 to hide xdcc commands (default is 1)
+ * \002/set proffer_list_deny <msg>\002 -- set to deny xdcc lists and respond instead with msg
+ * \002/set proffer_list_file <file>\002 -- set to keep file updated with current xdcc list
  * \002/proffer_add <dir|file>\002 -- add every file (that isn't already added) in a
                               directory or a specific file
  * \002/proffer_add_ann <dir|file>\002 -- ditto, but also announce the file-add
@@ -100,6 +104,7 @@ sub do_add {
 		if (not @paths) { push @return, "No file found in $path."; }
 	}
 	else { @return = ("Could not stat $path."); }
+	update_file() if ($list_file ne '');
 	return join("\n", @return);
 }
 
@@ -137,6 +142,7 @@ sub do_del {
 
 	my $file = $files[$num-1];
 	delete $files[$num-1];
+	update_file() if ($list_file ne '');
 	return sprintf("Deleted %s, downloaded %d times.", $file->{'name'}, $file->{'downloads'});
 }
 
@@ -153,6 +159,7 @@ sub do_mov {
 	my $item = splice(@files, $from, 1);
 	my @end = splice(@files, $to);
 	push @files, $item, @end;
+	update_file() if ($list_file ne '');
 
 	return sprintf("Moved %s to %d.", $item->{'name'}, $to+1);
 }
@@ -254,6 +261,7 @@ sub do_queue {
 	if (grep { ($_->{'id'} eq $id) and ($_->{'pack'} eq $pack) } @queue) { return "You already queued pack #$pack."; }
 
 	push @queue, { id => $id, pack => $pack };
+	update_file() if ($list_file ne '');
   return sprintf("Added you to the main queue for pack #%d in position %d.", $pack, $#queue+1);
 }
 
@@ -288,6 +296,27 @@ sub user_queues_available {
 	return $queues_user - scalar(@user_queue);
 }
 
+sub pack_info {
+	my $pack = shift;
+	my $file = $files[$pack-1];
+	if (not defined $file) { return "Invalid pack number. Try again."; }
+
+	my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = stat($file->{'file'});
+
+	return sprintf("Pack info for pack #%d:\n" .
+			" Filename       %s\n" .
+			" Filesize       %d [%s]\n" .
+			" Last Modified  %s\n" .
+			" Gets           %d", $pack, $file->{'name'}, $size, byte_suffix_dec($size), scalar(gmtime($mtime)), $file->{'downloads'});
+}
+
+sub update_file {
+	my $lines = return_list(Irssi::active_server()->{'nick'});
+  open(my $fh, '>', $list_file);
+	print $fh $lines;
+	close $fh;
+}
+
 
 # Irssi specific routines
 sub irssi_init {
@@ -298,6 +327,8 @@ sub irssi_init {
 	Irssi::settings_add_int(   'proffer', 'proffer_queues',      $queues);
 	Irssi::settings_add_int(   'proffer', 'proffer_queues_user', $queues_user);
 	Irssi::settings_add_bool(  'proffer', 'proffer_hide',        $hide);
+	Irssi::settings_add_str(   'proffer', 'proffer_list_deny',   $list_deny);
+	Irssi::settings_add_str(   'proffer', 'proffer_list_file',   $list_file);
 	Irssi::command_bind(       'proffer_add',                    \&irssi_add);
 	Irssi::command_bind(       'proffer_add_ann',                \&irssi_add_ann);
 	Irssi::command_bind(       'proffer_announce',               \&irssi_announce);
@@ -367,7 +398,10 @@ sub irssi_reload {
 	$val = Irssi::settings_get_int( 'proffer_queues');      if ($val ne $queues)      { $queues      = $val; $updated = 1; }
 	$val = Irssi::settings_get_int( 'proffer_queues_user'); if ($val ne $queues_user) { $queues_user = $val; $updated = 1; }
 	$val = Irssi::settings_get_bool('proffer_hide');        if ($val ne $hide)        { $hide        = $val; $updated = 1; }
+	$val = Irssi::settings_get_str( 'proffer_list_deny');   if ($val ne $list_deny)   { $list_deny   = $val; $updated = 1; }
+	$val = Irssi::settings_get_str( 'proffer_list_file');   if ($val ne $list_file)   { $list_file   = $val; $updated = 1; }
 	Irssi::print('proffer updated.') if $debug && $updated;
+	update_file() if ($list_file ne '') && $updated;
 }
 
 sub irssi_handle_pm {
@@ -396,9 +430,10 @@ sub irssi_check_channels {
 sub irssi_handle_xdcc {
 	my ($server, $nick, $msg) = @_;
   given ($msg) {
-		when (/^xdcc list$/i)         { irssi_reply($server, $nick, return_list($server->{'nick'})); }
+		                                # if $list_deny is set, deny xdcc list and reply with the set message.
+		when (/^xdcc list$/i)         { irssi_reply($server, $nick, ($list_deny ne '') ? "XDCC LIST DENIED. $list_deny" : return_list($server->{'nick'})) }
 		when (/^xdcc send #?(\d+)$/i) { my $pack = $1; irssi_try_send($server, $nick, $pack); }
-		when (/^xdcc info #?(\d+)$/i) { my $pack = $1; }
+		when (/^xdcc info #?(\d+)$/i) { my $pack = $1; irssi_reply($server, $nick, pack_info($pack)); }
 		when (/^xdcc stop$/i)         { }
 		when (/^xdcc cancel$/i)       { }
 		when (/^xdcc remove$/i)       { }
@@ -420,6 +455,7 @@ sub irssi_try_send {
 	if (slots_available() and user_slots_available("$tag, $nick")) { irssi_send($server, $nick, $pack); }
 	elsif (queues_available() and user_queues_available("$tag, $nick")) { irssi_reply($server, $nick, do_queue("$tag, $nick", $pack)); }
 	else { irssi_reply($server, $nick, "No more queues available for you."); }
+	update_file() if ($list_file ne '');
 }
 
 sub irssi_send {
@@ -483,6 +519,7 @@ sub irssi_next_queue {
 	}
 	else { print "irssi_next_queue: no slots available :(" if ($debug > 2); }
 	print "irssi_next_queue: finished." if ($debug > 2);
+	update_file() if ($list_file ne '');
 }
 
 sub irssi_queue {
