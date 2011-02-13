@@ -317,6 +317,14 @@ sub update_file {
 	close $fh;
 }
 
+sub remove_queues {
+	my $id = shift;
+	my $num = @queue;
+	@queue = grep { $_->{'id'} ne $id } @queue;
+	if ($num != scalar(@queue)) { return sprintf("Removed you from %d queues.", $num-scalar(@queue)); }
+	else { return "You don't appear to be in a queue."; }
+}
+
 
 # Irssi specific routines
 sub irssi_init {
@@ -429,14 +437,15 @@ sub irssi_check_channels {
 
 sub irssi_handle_xdcc {
 	my ($server, $nick, $msg) = @_;
-  given ($msg) {
+	my $id = $server->{'tag'} . ", $nick";
+	given ($msg) {
 		                                # if $list_deny is set, deny xdcc list and reply with the set message.
 		when (/^xdcc list$/i)         { irssi_reply($server, $nick, ($list_deny ne '') ? "XDCC LIST DENIED. $list_deny" : return_list($server->{'nick'})) }
 		when (/^xdcc send #?(\d+)$/i) { my $pack = $1; irssi_try_send($server, $nick, $pack); }
 		when (/^xdcc info #?(\d+)$/i) { my $pack = $1; irssi_reply($server, $nick, pack_info($pack)); }
 		when (/^xdcc stop$/i)         { }
-		when (/^xdcc cancel$/i)       { }
-		when (/^xdcc remove$/i)       { }
+		when (/^xdcc cancel$/i)       { irssi_reply($server, $nick, irssi_cancel_sends($server, $nick)); }
+		when (/^xdcc remove$/i)       { irssi_reply($server, $nick, remove_queues($id)); }
 	}
 }
 
@@ -528,6 +537,17 @@ sub irssi_queue {
 		printf("Queue %d: %s -> %d (%s)", ++$num, $queue->{'id'}, $queue->{'pack'}, $files[$queue->{'pack'}-1]->{'name'});
 	}
 	print "proffer: End of queue.";
+}
+
+sub irssi_cancel_sends {
+	my ($server, $nick) = @_;
+	my @dccs = grep { $_->{'type'} eq 'SEND' and
+				$_->{'servertag'} eq $server->{'tag'} and
+				$_->{'nick'} eq $nick } Irssi::Irc::dccs();
+
+	foreach my $dcc (@dccs) { $dcc->destroy(); }
+	if (scalar(@dccs)) { return sprintf("Aborted %d sends.", scalar(@dccs)); }
+	else { return "You don't have a transfer running."; }
 }
 
 if (HAVE_IRSSI) {
