@@ -11,7 +11,7 @@ use File::HomeDir;
 
 use Data::Dumper;
 
-our $VERSION = v0.1.0;
+our $VERSION = v0.1.1;
 
 our %info = (
 	author      => 'pink_mist',
@@ -22,6 +22,7 @@ our %info = (
 	license     => 'BSD'
 );
 
+# 0.1.1 - Most things are working, you can actually use it in a limited capacity
 # 0.1.0 - First version, only some things functioning
 
 my $debug = 1;
