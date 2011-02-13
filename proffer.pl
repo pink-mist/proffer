@@ -111,17 +111,23 @@ sub file_exists {
 sub do_announce {
 	my $data = shift;
 	my ($num, $msg) = @$data;
+	if ($num !~ /^\d+$/) { return 0; }
+	if (not defined $files[$num-1]) { return 0; }
+	my @channels = ();
 	if (HAVE_IRSSI) {
 		foreach my $channel (split(" ", $channels)) {
-			my $server = Irssi::channel_find($channel)->server;
+			my $server = Irssi::channel_find($channel)->{'server'};
 			if (not $server->{'connected'}) { next; }
+			push @channels, $channel;
 
 			my $file = $files[$num-1]->{'name'};
 			my $nick = $server->{'nick'};
-			my $message = "[$msg] $file - /msg $nick xdcc send #$num";
-			$server->command("MSG $channel $message");
+			my $message = "[\002$msg\002] $file - /msg $nick xdcc send #$num";
+			$server->send_message($channel, $message, 0);
 		}
 	}
+	print "Announced pack $num in channels: " . join(" ", @channels);
+	return 1;
 }
 
 sub do_del {
@@ -327,8 +333,7 @@ sub irssi_add_ann {
 sub irssi_announce {
 	my ($data, $server, $witem) = @_;
 	my @parse = parse_line(" ", 0, $data);
-	my $return = do_announce(\@parse) || "\002proffer:\002 announce -- erroneous arguments: $data";
-	Irssi::print($return);
+	my $return = do_announce(\@parse) or Irssi::print("\002proffer:\002 announce -- erroneous arguments: $data");
 }
 
 sub irssi_del {
