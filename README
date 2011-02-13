@@ -1,10 +1,32 @@
-proffer.pl is an irssi script to provide xdcc bot functionality
+        ===== Introduction =====
 
-Created by pink_mist (#shameimaru @ irc.rizon.net)
+proffer.pl is an irssi script to provide xdcc bot functionality created by pink_mist
+(#shameimaru @ irc.rizon.net). The inspiration for this script was mainly iroffer by pmg
+<http://iroffer.org/>. If you want a more efficient xdcc bot, that is a better bet, as
+this is after all just a small script running in irssi.
 
-Load in irssi by placing the script or a symlink to it in ~/.irssi/scripts/
-and in irssi type /script load proffer.pl
-or to autoload it on irssi startup, also place a symlink in ~/.irssi/scripts/autorun/
+        ===== Installation =====
+
+Load in irssi by placing the script or a symlink to it in `~/.irssi/scripts/´ and in
+irssi type `/script load proffer.pl´. Or if you want to autoload it on irssi startup,
+also place a symlink in `~/.irssi/scripts/autorun/´.
+
+By default, proffer writes its internal state when shutdown to `~/.irssi/proffer.state´.
+This includes files added to the file-list, record speeds and transfer-statistics.
+Queues are not kept on shutdown.
+
+        ===== Setup =====
+
+To setup file-sharing, just set proffer_channels to a list of channels you want to share
+in and add files to the bot:
+ * /set proffer_channels #shameimaru #test
+ * /proffer_add ~/sources/perl/proffer/proffer.pl
+ * /proffer_add "~/xdcc files/"
+
+That's all that's necessary. There are some other options that you can tweak to how you
+like them, see the help for more info.
+
+        ===== License =====
 
 Copyright 2011 pink_mist. All rights reserved.
 
