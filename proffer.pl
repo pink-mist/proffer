@@ -455,7 +455,9 @@ sub irssi_reply {
 	my ($server, $nick, $msg) = @_;
 
 	foreach (split("\n", $msg)) {
-		$server->send_message($nick, $_, 1);
+		if ($_ eq '') { next; }
+		$server->command("NOTICE $nick $_");
+		#$server->send_message($nick, $_, 1);
 	}
 }
 
