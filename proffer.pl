@@ -370,12 +370,11 @@ sub irssi_init {
 	Irssi::signal_add_last(    'dcc error connect',                \&irssi_dcc_closed);
 	Irssi::signal_add_last(    'dcc error file open',              \&irssi_dcc_closed);
 	Irssi::signal_add_last(    'dcc error send exists',            \&irssi_dcc_closed);
-	Irssi::signal_register(  { 'proffer next queue' =>             [] });
-	Irssi::signal_add(         'proffer next queue',               \&irssi_next_queue);
 	Irssi::signal_add(         'message part',                     \&irssi_check_queue);
 	Irssi::signal_add(         'message kick',                     \&irssi_check_queue);
 	Irssi::signal_add(         'message quit',                     \&irssi_check_queue);
 	Irssi::signal_add(         'message nick',                     \&irssi_handle_nick);
+
 	irssi_reload();
 }
 
@@ -539,7 +538,7 @@ sub irssi_dcc_closed {
 	my $closed = shift;
 	$state->{'transferred'} += ($closed->{'transfd'} - $closed->{'skipped'});
 	@renames = grep { $_->{'id'} ne $closed->{'_irssi'} } @renames;
-	Irssi::timeout_add_once(10, sub {  Irssi::signal_emit('proffer next queue'); }, undef);
+	Irssi::timeout_add_once(10, \&irssi_next_queue, undef);
 }
 
 sub irssi_next_queue {
