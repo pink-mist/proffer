@@ -343,6 +343,9 @@ sub irssi_init {
 	Irssi::command_bind(       'proffer mov',                      \&irssi_mov);
 	Irssi::command_bind(       'proffer list',                     \&irssi_list);
 	Irssi::command_bind(       'proffer queue',                    \&irssi_queue);
+	Irssi::command_bind(       'proffer queue force',              \&irssi_queue_force);
+	Irssi::command_bind(       'proffer queue send',               \&irssi_queue_force);
+	Irssi::command_bind(       'proffer queue del',                \&irssi_queue_del);
 	Irssi::command_bind(       'help',                             \&irssi_help);
 	# Intercept signals
 	Irssi::signal_add(         'setup changed',                    \&irssi_reload);
@@ -581,6 +584,26 @@ sub irssi_handle_nick {
 		} grep { $_->{'tag'} eq $tag and $_->{'nick'} eq $oldnick } @renames;
 }
 
+sub irssi_queue_force {
+	my ($data, $server, $item) = @_;
+
+	if (exists $queue[$data-1]) {
+		my ($item) = splice(@queue, $data-1, 1);
+		$item->{'id'} =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
+		irssi_send(Irssi::server_find_tag($tag), $nick, $item->{'pack'});
+	}
+}
+
+sub irssi_queue_del {
+	my ($data, $server, $item) = @_;
+
+	if (exists $queue[$data-1]) {
+		delete $queue[$data-1];
+		Irssi::print("Removed queue number $data.");
+  }
+	else { Irssi::print("No such queue: $data."); }
+}
+
 my $help_main = <<END;
 \002proffer
 proffer.pl v%vd is an irssi script to provide xdcc bot functionality created by pink_mist
@@ -707,8 +730,19 @@ my $help_queue    = <<END;
 
 \002Syntax
  * /proffer queue
+ * /proffer queue del <num>
+ * /proffer queue force <num>
+ * /proffer queue send <num>
 
-This displays the current queue.
+The first version of this command just displays the current queue, the others
+manipulate it in some way.
+ * `del´ deletes the specified queue without notifying the user.
+ * `force´ and `send´ are synonyms that sends the specified queue to the user.
+
+\002Examples
+ * /proffer queue
+ * /proffer queue del 3
+ * /proffer queue force 8
 END
 
 sub irssi_help {
