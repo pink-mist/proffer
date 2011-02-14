@@ -21,6 +21,7 @@ Queues are not kept on shutdown.
 
 To setup file-sharing, just set proffer_channels to a list of channels you want to share
 in and add files to the bot:
+
  * /set proffer_channels #shameimaru #test
  * /proffer_add ~/sources/perl/proffer/proffer.pl
  * /proffer_add "~/xdcc files/"
@@ -55,3 +56,23 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 The views and conclusions contained in the software and documentation are those of the
 authors and should not be interpreted as representing official policies, either expressed
 or implied, of pink_mist.
+
+        ===== Known Bugs =====
+
+This is a list of all currently known bugs in the script.
+
+ * Does not support XDCC STOP to stop current xdcc listing.
+     -- Not planned to be fixed.
+ * Some messages do not conform to how iroffer and its offshoots report things
+     -- May fix some of these, but probably not all.
+
+No other known bugs at this time.
+
+        ===== To do =====
+
+These are things that are planned for the next minor release:
+
+ * Add irssi help messages
+ * Provide auto-completion routines
+ * Make commands into subcommands
+ * Add a statusbar field with quick info
