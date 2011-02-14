@@ -86,8 +86,7 @@ END
 }
 
 sub do_add {
-	my $data = shift;
-	my ($path, $msg) = @$data;
+	my ($path, $msg) = @_;
 	if (not defined $path) { return undef; }
 	print "Debug: $path" if ($debug > 1);
 	if ($path =~ /^~/) { my $home = File::HomeDir->my_home(); $path =~ s/^~/$home/; }
@@ -105,8 +104,7 @@ sub do_add {
 		opendir(my $dh, $path) or return "Could not open dir: $path.";
 		my @paths = sort grep {!/^\./} readdir($dh);
 		closedir($dh);
-		#foreach (@paths) { push @return, "Should add: $_"; }
-		foreach (@paths) { push @return, do_add( ["$path/$_", $msg] ); }
+		foreach (@paths) { push @return, do_add("$path/$_", $msg); }
 		if (not @paths) { push @return, "No file found in $path."; }
 	}
 	else { @return = ("Could not stat $path."); }
@@ -121,8 +119,7 @@ sub file_exists {
 }
 
 sub do_announce {
-	my $data = shift;
-	my ($num, $msg) = @$data;
+	my ($num, $msg) = @_;
 	if ($num !~ /^\d+$/) { return 0; }
 	if (not defined $files[$num-1]) { return 0; }
 	my @channels = ();
@@ -153,9 +150,7 @@ sub do_del {
 }
 
 sub do_mov {
-	my $data = shift;
-	print "Debug: $data" if ($debug > 1);
-	my ($from, $to) = @$data;
+	my ($from, $to) = @_;
 	if (($from !~ /^\d+$/) || ($to !~ /^\d+$/)) { return undef; }
 	$from--; $to--;
 	if (($from < 0) || ($to < 0) || ($from > $#files) || ($to > $#files)) {
@@ -376,41 +371,37 @@ sub irssi_init {
 
 sub irssi_add {
 	my ($data, $server, $witem) = @_;
-	my @parse = ($data);
-	my $return = do_add(\@parse) || "\002proffer:\002 add -- erroneous arguments: $data";
+	my $return = do_add($data) || "\002proffer:\002 add -- erroneous arguments: $data";
 	Irssi::print($return);
 }
 
 sub irssi_add_ann {
 	my ($data, $server, $witem) = @_;
-	my $return = do_add([$data, "added"]) || "\002proffer:\002 add_ann -- erroneous arguments: $data";
+	my $return = do_add($data, "added") || "\002proffer:\002 add_ann -- erroneous arguments: $data";
 	Irssi::print($return);
 }
 
 sub irssi_announce {
 	my ($data, $server, $witem) = @_;
 	my @parse = parse_line(" ", 0, $data);
-	my $return = do_announce(\@parse) or Irssi::print("\002proffer:\002 announce -- erroneous arguments: $data");
+	my $return = do_announce(@parse) or Irssi::print("\002proffer:\002 announce -- erroneous arguments: $data");
 }
 
 sub irssi_del {
 	my ($data, $server, $witem) = @_;
-	my @parse = ($data);
-	my $return = do_del(\@parse) || "\002proffer:\002 del -- erroneous arguments: $data";
+	my $return = do_del($data) || "\002proffer:\002 del -- erroneous arguments: $data";
 	Irssi::print($return);
 }
 
 sub irssi_mov {
 	my ($data, $server, $witem) = @_;
 	my @parse = quotewords(" ", 0, $data);
-	my $return = do_mov(\@parse) || "\002proffer:\002 mov -- erroneous arguments: $data";
+	my $return = do_mov(@parse) || "\002proffer:\002 mov -- erroneous arguments: $data";
 	Irssi::print($return);
 }
 
 sub irssi_list {
-	my $nick = '';
-	my $server = Irssi::active_server();
-	if (defined $server) { $nick = $server->{'nick'}; }
+	my $nick = defined Irssi::active_server() ? Irssi::active_server()->{'nick'} : Irssi::settings_get_str('nick');
 	Irssi::print(return_list($nick));
 }
 
