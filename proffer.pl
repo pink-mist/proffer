@@ -235,7 +235,7 @@ sub read_state {
 	foreach my $line (@lines) {
 		if ($line =~ /^(\d+) (.*)$/) {
 			my $dls = $1; my $file = $2;
-			my $add_status = do_add([$file]);
+			my $add_status = do_add($file);
 			if ($add_status =~ /^Added /) { $files[$#files]->{'downloads'} = $dls; }
 		}
 		else { die "Could not properly parse state file $state_file. Has it been corrupted?"; }
@@ -346,6 +346,7 @@ sub irssi_init {
 	Irssi::command_bind(       'proffer queue force',              \&irssi_queue_force);
 	Irssi::command_bind(       'proffer queue send',               \&irssi_queue_force);
 	Irssi::command_bind(       'proffer queue del',                \&irssi_queue_del);
+	Irssi::command_bind(       'proffer queue mov',                \&irssi_queue_mov);
 	Irssi::command_bind(       'help',                             \&irssi_help);
 	# Intercept signals
 	Irssi::signal_add(         'setup changed',                    \&irssi_reload);
@@ -527,6 +528,7 @@ sub irssi_next_queue {
 	if (slots_available()) {
 		my $num = 0;
 		foreach my $queue (@queue) {
+			if (not exists $queue->{'id'}) { print "skipping queue." if $debug; next; } #this shouldn't be necessary ...
 			if (user_slots_available($queue->{'id'})) {
 				printf("Sending queue #%d to %s.", $num+1, $queue->{'id'}) unless $hide;
 				my ($add) = splice(@queue, $num, 1);
@@ -545,6 +547,11 @@ sub irssi_next_queue {
 }
 
 sub irssi_queue {
+	my ($data, $server, $item) = @_;
+	if ($data ne '') {
+		Irssi::command_runsub('proffer queue', $data, $server, $item);
+		return;
+	}
 	my $num = 0;
 	map {
 			printf("Queue %d: %s -> %d (%s)", ++$num, $_->{'id'}, $_->{'pack'}, $files[$_->{'pack'}-1]->{'name'});
@@ -587,21 +594,36 @@ sub irssi_handle_nick {
 sub irssi_queue_force {
 	my ($data, $server, $item) = @_;
 
-	if (exists $queue[$data-1]) {
+	if (($data =~ /^\d+\s*$/) && (exists $queue[$data-1])) {
 		my ($item) = splice(@queue, $data-1, 1);
 		$item->{'id'} =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
 		irssi_send(Irssi::server_find_tag($tag), $nick, $item->{'pack'});
 	}
+	else { Irssi::print("Queue force error: $data isn't a packnumber."); }
 }
 
 sub irssi_queue_del {
 	my ($data, $server, $item) = @_;
 
-	if (exists $queue[$data-1]) {
-		delete $queue[$data-1];
+	if (($data =~ /^\d+\s*$/) && (exists $queue[$data-1])) {
+		splice(@queue, $data-1, 1);
 		Irssi::print("Removed queue number $data.");
   }
 	else { Irssi::print("No such queue: $data."); }
+}
+
+sub irssi_queue_mov {
+	my ($data, $server, $item) = @_;
+	if ($data =~ /^(\d+)\s+(\d+)\s*$/) {
+		my ($from, $to) = ($1, $2); $from--; $to--;
+		if (exists $queue[$from] and exists $queue[$to]) {
+			my $item = splice(@queue, $from, 1);
+			my @end = splice(@queue, $to);
+			push @queue, $item, @end;
+		}
+		else { Irssi::print(sprintf("Could not move %d to %d: Index out of bounds.", ++$from, ++$to)); }
+	}
+	else { Irssi::print("Need two numbers to move from and to. Not: $data."); }
 }
 
 my $help_main = <<END;
