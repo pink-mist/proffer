@@ -633,7 +633,7 @@ sub irssi_queue_del {
 	if (($data =~ /^\d+\s*$/) && (exists $queue[$data-1])) {
 		splice(@queue, $data-1, 1);
 		Irssi::print("Removed queue number $data.");
-  }
+	}
 	else { Irssi::print("No such queue: $data."); }
 }
 
