@@ -640,10 +640,10 @@ sub irssi_queue_del {
 sub irssi_queue_mov {
 	my ($data, $server, $item) = @_;
 	if ($data =~ /^(\d+)\s+(\d+)\s*$/) {
-		my ($from, $to) = ($1, $2); $from--; $to--;
-		if (exists $queue[$from] and exists $queue[$to]) {
-			my $item = splice(@queue, $from, 1);
-			my @end = splice(@queue, $to);
+		my ($from, $to) = ($1, $2);
+		if (exists $queue[$from-1] and exists $queue[$to-1]) {
+			my $item = splice(@queue, $from-1, 1);
+			my @end = splice(@queue, $to-1);
 			push @queue, $item, @end;
 			Irssi::print("Moved queue $from to $to.");
 		}
@@ -783,18 +783,21 @@ my $help_queue    = <<END;
 \002Syntax
  * /proffer queue
  * /proffer queue del <num>
+ * /proffer queue mov <from> <to>
  * /proffer queue force <num>
  * /proffer queue send <num>
 
 The first version of this command just displays the current queue, the others
 manipulate it in some way.
  * `del´ deletes the specified queue without notifying the user.
+ * `mov´ moves a queue from <from> to <to>.
  * `force´ and `send´ are synonyms that sends the specified queue to the user.
 
 \002Examples
  * /proffer queue
  * /proffer queue del 3
  * /proffer queue force 8
+ * /proffer mov 29 1
 END
 
 sub irssi_help {
