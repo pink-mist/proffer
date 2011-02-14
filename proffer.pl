@@ -11,7 +11,7 @@ use File::HomeDir;
 
 use Data::Dumper;
 
-our $VERSION = v0.2.2;
+our $VERSION = v1.0.0;
 
 our %info = (
 	author      => 'pink_mist',
@@ -22,6 +22,7 @@ our %info = (
 	license     => 'BSD'
 );
 
+# 1.0.0 - State is good enough to get version 1.0 -- added queue handling, tab completion, help, statusbar, better irssi integration
 # 0.2.2 - Bugfix release: fixed del command which was not working
 # 0.2.1 - Bugfix release: fixed rename-tracking for dcc sends as well
 # 0.2.0 - Every needed command is implemented, properly tracks nicks, and now uses /notice instead of /msg
