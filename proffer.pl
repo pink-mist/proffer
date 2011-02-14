@@ -541,7 +541,6 @@ sub irssi_next_queue {
 	if (slots_available()) {
 		my $num = 0;
 		foreach my $queue (@queue) {
-			if (not exists $queue->{'id'}) { print "skipping queue." if $debug; next; } #this shouldn't be necessary ...
 			if (user_slots_available($queue->{'id'})) {
 				printf("Sending queue #%d to %s.", $num+1, $queue->{'id'}) unless $hide;
 				my ($add) = splice(@queue, $num, 1);
