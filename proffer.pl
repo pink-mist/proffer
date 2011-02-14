@@ -235,7 +235,7 @@ sub read_state {
 	foreach my $line (@lines) {
 		if ($line =~ /^(\d+) (.*)$/) {
 			my $dls = $1; my $file = $2;
-			my $add_status = do_add([$file]);
+			my $add_status = do_add($file);
 			if ($add_status =~ /^Added /) { $files[$#files]->{'downloads'} = $dls; }
 		}
 		else { die "Could not properly parse state file $state_file. Has it been corrupted?"; }
@@ -323,6 +323,7 @@ sub max { return ($_[0] > $_[1]) ? $_[0] : $_[1]; }
 # Irssi specific routines
 sub irssi_init {
 	require Irssi::Irc;
+	require Irssi::TextUI;
 
 	# Register settings
 	Irssi::settings_add_str(   'proffer', 'proffer_channels',      $channels);
@@ -343,6 +344,10 @@ sub irssi_init {
 	Irssi::command_bind(       'proffer mov',                      \&irssi_mov);
 	Irssi::command_bind(       'proffer list',                     \&irssi_list);
 	Irssi::command_bind(       'proffer queue',                    \&irssi_queue);
+	Irssi::command_bind(       'proffer queue force',              \&irssi_queue_force);
+	Irssi::command_bind(       'proffer queue send',               \&irssi_queue_force);
+	Irssi::command_bind(       'proffer queue del',                \&irssi_queue_del);
+	Irssi::command_bind(       'proffer queue mov',                \&irssi_queue_mov);
 	Irssi::command_bind(       'help',                             \&irssi_help);
 	# Intercept signals
 	Irssi::signal_add(         'setup changed',                    \&irssi_reload);
@@ -357,6 +362,9 @@ sub irssi_init {
 	Irssi::signal_add(         'message quit',                     \&irssi_check_queue);
 	Irssi::signal_add(         'message nick',                     \&irssi_handle_nick);
 	Irssi::signal_add_first(   'complete word',                    \&irssi_completion);
+
+	# Statusbar
+	Irssi::statusbar_item_register('proffer', '{sb $0-}', 'irssi_statusbar');
 
 	irssi_reload();
 }
@@ -418,6 +426,9 @@ sub irssi_reload {
 	$val = Irssi::settings_get_bool('proffer_restrict_send'); if ($val ne $restrict_send) { $restrict_send = $val; $updated = 1; }
 	Irssi::print('proffer updated.') if $debug && $updated;
 	update_file() if ($list_file ne '') && $updated;
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_handle_pm {
@@ -469,6 +480,9 @@ sub irssi_try_send {
 	elsif (queues_available() and user_queues_available("$tag, $nick")) { irssi_reply($server, $nick, do_queue("$tag, $nick", $pack)); }
 	else { irssi_reply($server, $nick, "No more queues available for you."); }
 	update_file() if ($list_file ne '');
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_send {
@@ -496,6 +510,9 @@ sub irssi_dcc_update {
 
 	#see if any send slots are available
 	irssi_next_queue();
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_current_speed {
@@ -539,9 +556,20 @@ sub irssi_next_queue {
 	else { print "irssi_next_queue: no slots available :(" if ($debug > 2); }
 	print "irssi_next_queue: finished." if ($debug > 2);
 	update_file() if ($list_file ne '');
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_queue {
+	my ($data, $server, $item) = @_;
+	if ($data ne '') {
+		Irssi::command_runsub('proffer queue', $data, $server, $item);
+
+		#update statusbar
+		Irssi::statusbar_items_redraw('proffer');
+		return;
+	}
 	my $num = 0;
 	map {
 			printf("Queue %d: %s -> %d (%s)", ++$num, $_->{'id'}, $_->{'pack'}, $files[$_->{'pack'}-1]->{'name'});
@@ -558,6 +586,9 @@ sub irssi_cancel_sends {
 	map { $_->destroy(); } @dccs;
 	if (scalar(@dccs)) { return sprintf("Aborted %d sends.", scalar(@dccs)); }
 	else { return "You don't have a transfer running."; }
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_check_queue {
@@ -579,6 +610,45 @@ sub irssi_handle_nick {
 	map {
 			$_->{'nick'} = $newnick
 		} grep { $_->{'tag'} eq $tag and $_->{'nick'} eq $oldnick } @renames;
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
+}
+
+sub irssi_queue_force {
+	my ($data, $server, $item) = @_;
+
+	if (($data =~ /^\d+\s*$/) && (exists $queue[$data-1])) {
+		my ($item) = splice(@queue, $data-1, 1);
+		$item->{'id'} =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
+		irssi_send(Irssi::server_find_tag($tag), $nick, $item->{'pack'});
+	}
+	else { Irssi::print("Queue force error: $data isn't a packnumber."); }
+}
+
+sub irssi_queue_del {
+	my ($data, $server, $item) = @_;
+
+	if (($data =~ /^\d+\s*$/) && (exists $queue[$data-1])) {
+		splice(@queue, $data-1, 1);
+		Irssi::print("Removed queue number $data.");
+	}
+	else { Irssi::print("No such queue: $data."); }
+}
+
+sub irssi_queue_mov {
+	my ($data, $server, $item) = @_;
+	if ($data =~ /^(\d+)\s+(\d+)\s*$/) {
+		my ($from, $to) = ($1, $2);
+		if (exists $queue[$from-1] and exists $queue[$to-1]) {
+			my $item = splice(@queue, $from-1, 1);
+			my @end = splice(@queue, $to-1);
+			push @queue, $item, @end;
+			Irssi::print("Moved queue $from to $to.");
+		}
+		else { Irssi::print(sprintf("Could not move %d to %d: Index out of bounds.", ++$from, ++$to)); }
+	}
+	else { Irssi::print("Need two numbers to move from and to. Not: $data."); }
 }
 
 my $help_main = <<END;
@@ -615,6 +685,10 @@ Website: http://github.com/pink-mist/proffer
    -- Set how many send slots you want to provide.
  * \002proffer_slots_user\002 <num>
    -- Set the maximum number of slots a single user can have.
+
+\002Statusbar
+You can also add a statusbar item which shows info on the status of the xdcc bot:
+ * \002/statusbar window add proffer
 
 \002See also
  /help ...
@@ -707,8 +781,22 @@ my $help_queue    = <<END;
 
 \002Syntax
  * /proffer queue
+ * /proffer queue del <num>
+ * /proffer queue mov <from> <to>
+ * /proffer queue force <num>
+ * /proffer queue send <num>
 
-This displays the current queue.
+The first version of this command just displays the current queue, the others
+manipulate it in some way.
+ * `del´ deletes the specified queue without notifying the user.
+ * `mov´ moves a queue from <from> to <to>.
+ * `force´ and `send´ are synonyms that sends the specified queue to the user.
+
+\002Examples
+ * /proffer queue
+ * /proffer queue del 3
+ * /proffer queue force 8
+ * /proffer mov 29 1
 END
 
 sub irssi_help {
@@ -759,12 +847,33 @@ sub irssi_completion {
 			push @$strings, @nums;   $$want_space = 0; $stop = 1; }
 		when (/^\/proffer announce \d+$/i)   {
 			push @$strings, 'added'; $$want_space = 0; $stop = 1; }
+		when (/^\/proffer queue (mov|del|force|send)$/i)          {
+			@nums = (1 .. scalar(@queue));
+			if ($word =~ /^\d+$/) {
+				my @end = splice(@nums, 0, $word-1); push @nums, @end; }
+			$word = join(' ', @nums);            #for some reason we must *use* the @nums array, or irrsi will segfault
+			push @$strings, @nums;   $$want_space = 0; $stop = 1; }
+		when (/^\/proffer queue mov (\d+)$/i)      {
+			@nums = (1 .. scalar(@queue));
+			my $not = $1; @nums = grep { $_ != $not } @nums;
+			if ($word =~ /^\d+$/) {
+				my @end = splice(@nums, 0, $word > $not ? $word-2 : $word-1); push @nums, @end; }
+			$word = join(' ', @nums);            #for some reason we must *use* the @nums array, or irrsi will segfault
+			push @$strings, @nums;   $$want_space = 0; $stop = 1; }
 		#when (/^\/proffer list$/i)          { #placeholder for when we may change this
-		#                          $$want_space = 0; $stop = 1; }
-		#when (/^\/proffer queue$/i)         { #placeholder for when we may change this
 		#                          $$want_space = 0; $stop = 1; }
 	}
 	Irssi::signal_stop() if $stop;
+}
+
+sub irssi_statusbar {
+	my ($sb_item, $get_size_only) = @_;
+	my $statusbar = sprintf('F:%d S:%d/%d Q:%d/%d @%s/s',
+			scalar(@files),                                                     #xdcc list length
+			scalar(grep { $_->{'type'} eq 'SEND' } Irssi::Irc::dccs()),	$slots, #used slots, total slots
+			scalar(@queue),	$queues,                                            #used queue, max queue
+			current_speed());
+	$sb_item->default_handler($get_size_only, '{sb $0-}', $statusbar, 1);
 }
 
 if (HAVE_IRSSI) {

@@ -24,7 +24,7 @@ in and add files to the bot:
 
  * /set proffer_channels #shameimaru #test
  * /proffer_add ~/sources/perl/proffer/proffer.pl
- * /proffer_add "~/xdcc files/"
+ * /proffer_add ~/xdcc files/
 
 That's all that's necessary. There are some other options that you can tweak to how you
 like them, see the help for more info.
@@ -67,10 +67,3 @@ This is a list of all currently known bugs in the script.
      -- May fix some of these, but probably not all.
 
 No other known bugs at this time.
-
-        ===== To do =====
-
-These are things that are planned for the next minor release:
-
- * Add a statusbar field with quick info
- * Add queue handling capabilities
