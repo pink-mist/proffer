@@ -63,7 +63,8 @@ This is a list of all currently known bugs in the script.
 
  * Does not support XDCC STOP to stop current xdcc listing.
      -- Not planned to be fixed.
- * Some messages do not conform to how iroffer and its offshoots report things
+ * Some messages do not conform to how iroffer and its offshoots report things.
      -- May fix some of these, but probably not all.
+ * XDCC responses aren't always hidden even if they should be.
 
 No other known bugs at this time.
