@@ -360,6 +360,7 @@ sub irssi_init {
 	Irssi::signal_add(         'message kick',                     \&irssi_check_queue);
 	Irssi::signal_add(         'message quit',                     \&irssi_check_queue);
 	Irssi::signal_add(         'message nick',                     \&irssi_handle_nick);
+	Irssi::signal_add_first(   'complete word',                    \&irssi_completion);
 
 	irssi_reload();
 }
@@ -735,6 +736,43 @@ sub irssi_help {
 		Irssi::print($help);
 		Irssi::signal_stop();
 	}
+}
+
+sub irssi_completion {
+	my ($strings, $window, $word, $linestart, $want_space) = @_;
+	my $stop = 0;
+
+	my @nums = (1 .. scalar(@files));
+	given ($linestart) {
+		when (/^\/proffer add(_ann)?$/i)     {
+			$word =~ s/ /\\ /g;                  #escape spaces
+		                                       #if filename is a directory, append /
+		  push @$strings, map { if (-d $_) { "$_/" } else { "$_" } } glob("$word*");
+		                           $$want_space = 0; $stop = 1; }
+		when (/^\/proffer del$/i)            {
+			if ($word =~ /^\d+$/) {
+				my @end = splice(@nums, 0, $word-1); push @nums, @end; }
+			$word = join(' ', @nums);            #for some reason we must *use* the @nums array, or irrsi will segfault
+			push @$strings, @nums;   $$want_space = 0; $stop = 1; }
+		when (/^\/proffer (mov|announce)$/i) {
+			if ($word =~ /^\d+$/) {
+				my @end = splice(@nums, 0, $word-1); push @nums, @end; }
+			$word = join(' ', @nums);            #for some reason we must *use* the @nums array, or irrsi will segfault
+			push @$strings, @nums;   $$want_space = 1; $stop = 1; }
+		when (/^\/proffer mov (\d+)$/i)      {
+			my $not = $1; @nums = grep { $_ != $not } @nums;
+			if ($word =~ /^\d+$/) {
+				my @end = splice(@nums, 0, $word > $not ? $word-2 : $word-1); push @nums, @end; }
+			$word = join(' ', @nums);            #for some reason we must *use* the @nums array, or irrsi will segfault
+			push @$strings, @nums;   $$want_space = 0; $stop = 1; }
+		when (/^\/proffer announce \d+$/i)   {
+			push @$strings, 'added'; $$want_space = 0; $stop = 1; }
+		#when (/^\/proffer list$/i)          { #placeholder for when we may change this
+		#                          $$want_space = 0; $stop = 1; }
+		#when (/^\/proffer queue$/i)         { #placeholder for when we may change this
+		#                          $$want_space = 0; $stop = 1; }
+	}
+	Irssi::signal_stop() if $stop;
 }
 
 if (HAVE_IRSSI) {

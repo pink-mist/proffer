@@ -72,6 +72,5 @@ No other known bugs at this time.
 
 These are things that are planned for the next minor release:
 
- * Provide auto-completion routines
  * Add a statusbar field with quick info
  * Add queue handling capabilities
