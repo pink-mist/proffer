@@ -645,6 +645,7 @@ sub irssi_queue_mov {
 			my $item = splice(@queue, $from, 1);
 			my @end = splice(@queue, $to);
 			push @queue, $item, @end;
+			Irssi::print("Moved queue $from to $to.");
 		}
 		else { Irssi::print(sprintf("Could not move %d to %d: Index out of bounds.", ++$from, ++$to)); }
 	}
@@ -844,9 +845,20 @@ sub irssi_completion {
 			push @$strings, @nums;   $$want_space = 0; $stop = 1; }
 		when (/^\/proffer announce \d+$/i)   {
 			push @$strings, 'added'; $$want_space = 0; $stop = 1; }
+		when (/^\/proffer queue (mov|del|force|send)$/i)          {
+			@nums = (1 .. scalar(@queue));
+			if ($word =~ /^\d+$/) {
+				my @end = splice(@nums, 0, $word-1); push @nums, @end; }
+			$word = join(' ', @nums);            #for some reason we must *use* the @nums array, or irrsi will segfault
+			push @$strings, @nums;   $$want_space = 0; $stop = 1; }
+		when (/^\/proffer queue mov (\d+)$/i)      {
+			@nums = (1 .. scalar(@queue));
+			my $not = $1; @nums = grep { $_ != $not } @nums;
+			if ($word =~ /^\d+$/) {
+				my @end = splice(@nums, 0, $word > $not ? $word-2 : $word-1); push @nums, @end; }
+			$word = join(' ', @nums);            #for some reason we must *use* the @nums array, or irrsi will segfault
+			push @$strings, @nums;   $$want_space = 0; $stop = 1; }
 		#when (/^\/proffer list$/i)          { #placeholder for when we may change this
-		#                          $$want_space = 0; $stop = 1; }
-		#when (/^\/proffer queue$/i)         { #placeholder for when we may change this
 		#                          $$want_space = 0; $stop = 1; }
 	}
 	Irssi::signal_stop() if $stop;
