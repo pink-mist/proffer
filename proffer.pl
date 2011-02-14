@@ -323,6 +323,7 @@ sub max { return ($_[0] > $_[1]) ? $_[0] : $_[1]; }
 # Irssi specific routines
 sub irssi_init {
 	require Irssi::Irc;
+	require Irssi::TextUI;
 
 	# Register settings
 	Irssi::settings_add_str(   'proffer', 'proffer_channels',      $channels);
@@ -361,6 +362,9 @@ sub irssi_init {
 	Irssi::signal_add(         'message quit',                     \&irssi_check_queue);
 	Irssi::signal_add(         'message nick',                     \&irssi_handle_nick);
 	Irssi::signal_add_first(   'complete word',                    \&irssi_completion);
+
+	# Statusbar
+	Irssi::statusbar_item_register('proffer', '{sb $0-}', 'irssi_statusbar');
 
 	irssi_reload();
 }
@@ -422,6 +426,9 @@ sub irssi_reload {
 	$val = Irssi::settings_get_bool('proffer_restrict_send'); if ($val ne $restrict_send) { $restrict_send = $val; $updated = 1; }
 	Irssi::print('proffer updated.') if $debug && $updated;
 	update_file() if ($list_file ne '') && $updated;
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_handle_pm {
@@ -473,6 +480,9 @@ sub irssi_try_send {
 	elsif (queues_available() and user_queues_available("$tag, $nick")) { irssi_reply($server, $nick, do_queue("$tag, $nick", $pack)); }
 	else { irssi_reply($server, $nick, "No more queues available for you."); }
 	update_file() if ($list_file ne '');
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_send {
@@ -500,6 +510,9 @@ sub irssi_dcc_update {
 
 	#see if any send slots are available
 	irssi_next_queue();
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_current_speed {
@@ -544,12 +557,18 @@ sub irssi_next_queue {
 	else { print "irssi_next_queue: no slots available :(" if ($debug > 2); }
 	print "irssi_next_queue: finished." if ($debug > 2);
 	update_file() if ($list_file ne '');
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_queue {
 	my ($data, $server, $item) = @_;
 	if ($data ne '') {
 		Irssi::command_runsub('proffer queue', $data, $server, $item);
+
+		#update statusbar
+		Irssi::statusbar_items_redraw('proffer');
 		return;
 	}
 	my $num = 0;
@@ -568,6 +587,9 @@ sub irssi_cancel_sends {
 	map { $_->destroy(); } @dccs;
 	if (scalar(@dccs)) { return sprintf("Aborted %d sends.", scalar(@dccs)); }
 	else { return "You don't have a transfer running."; }
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_check_queue {
@@ -589,6 +611,9 @@ sub irssi_handle_nick {
 	map {
 			$_->{'nick'} = $newnick
 		} grep { $_->{'tag'} eq $tag and $_->{'nick'} eq $oldnick } @renames;
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_queue_force {
@@ -660,6 +685,10 @@ Website: http://github.com/pink-mist/proffer
    -- Set how many send slots you want to provide.
  * \002proffer_slots_user\002 <num>
    -- Set the maximum number of slots a single user can have.
+
+\002Statusbar
+You can also add a statusbar item which shows info on the status of the xdcc bot:
+ * \002/statusbar window add proffer
 
 \002See also
  /help ...
@@ -821,6 +850,16 @@ sub irssi_completion {
 		#                          $$want_space = 0; $stop = 1; }
 	}
 	Irssi::signal_stop() if $stop;
+}
+
+sub irssi_statusbar {
+	my ($sb_item, $get_size_only) = @_;
+	my $statusbar = sprintf('F:%d S:%d/%d Q:%d/%d @%s/s',
+			scalar(@files),                                                     #xdcc list length
+			scalar(grep { $_->{'type'} eq 'SEND' } Irssi::Irc::dccs()),	$slots, #used slots, total slots
+			scalar(@queue),	$queues,                                            #used queue, max queue
+			current_speed());
+	$sb_item->default_handler($get_size_only, '{sb $0-}', $statusbar, 1);
 }
 
 if (HAVE_IRSSI) {
