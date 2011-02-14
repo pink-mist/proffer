@@ -56,32 +56,17 @@ BEGIN {
 sub init {
   my $introstr = <<END;
 \002---------------------------------------------------------------------------------
-\002proffer - acts as xdcc bot
+\002proffer - lets your irssi serve files as an xdcc bot
 \002Version - v%vd - Created by pink_mist (irc.rizon.net #shameimaru)
 \002---------------------------------------------------------------------------------
-Usage:
- * \002/help proffer\002 -- for more detailed help
- * \002/set proffer_channels <#channel1 ...>\002 -- to set which channels to be active in
- * \002/set proffer_slots <num>\002 -- number of send slots
- * \002/set proffer_slots_user <num>\002 -- number of send slots per user
- * \002/set proffer_queues <num>\002 -- number of queues
- * \002/set proffer_queues_user <num>\002 -- number of queues per user
- * \002/set proffer_hide\002 -- set to 1 to hide xdcc commands (default is 1)
- * \002/set proffer_list_deny <msg>\002 -- set to deny xdcc lists and respond instead with msg
- * \002/set proffer_list_file <file>\002 -- set to keep file updated with current xdcc list
- * \002/set proffer_restrict_send <val>\002 -- enable to restrict xdcc functionality to nicks
-                                       in a channel with you
- * \002/proffer add <dir|file>\002 -- add every file (that isn't already added) in a
-                              directory or a specific file
- * \002/proffer add_ann <dir|file>\002 -- ditto, but also announce the file-add
- * \002/proffer announce <num> [msg]\002 -- announce a file with optional message
- * \002/proffer del <num>\002 -- delete a file from the bot
- * \002/proffer mov <from> <to>\002 -- move a file from the bot
- * \002/proffer list\002 -- list the files on the bot
+Basic setup:
+ * /set proffer_channels <#channel1 ...>
+ * /proffer add <file|dir>
+For further help see \002/help proffer
 \002---------------------------------------------------------------------------------
 END
 	chomp($introstr);
-	printf($introstr, $VERSION) unless $hide;
+	printf($introstr, $VERSION);
 	read_state();
 }
 
@@ -362,6 +347,7 @@ sub irssi_init {
 	Irssi::command_bind(       'proffer mov',                      \&irssi_mov);
 	Irssi::command_bind(       'proffer list',                     \&irssi_list);
 	Irssi::command_bind(       'proffer queue',                    \&irssi_queue);
+	Irssi::command_bind(       'help',                             \&irssi_help);
 	# Intercept signals
 	Irssi::signal_add(         'setup changed',                    \&irssi_reload);
 	Irssi::signal_add_first(   'message private',                  \&irssi_handle_pm);
@@ -600,6 +586,155 @@ sub irssi_handle_nick {
 	map {
 			$_->{'nick'} = $newnick
 		} grep { $_->{'tag'} eq $tag and $_->{'nick'} eq $oldnick } @renames;
+}
+
+my $help_main = <<END;
+\002proffer
+proffer.pl v%vd is an irssi script to provide xdcc bot functionality created by pink_mist
+(#shameimaru @ irc.rizon.net).
+
+Website: http://github.com/pink-mist/proffer
+
+\002Basic setup
+ * /set proffer_channels <#channel1 ...>
+ * /proffer_add <file|dir>
+
+\002Settings
+ * \002proffer_channels\002 <#channel1 ...>
+   -- Set which channels to announce new packs in and monitor for `xdcc list´/`!list´.
+ * \002proffer_restrict_send\002 <ON|OFF>
+   -- Set to on if anyone wishing to use the bot \002has\002 to be in the specified channels.
+ * \002proffer_list_deny\002 <message>
+   -- If this is set to any value, xdcc lists will be denied, and the <message> will be sent
+      instead. To unset this, use `\002/set -clear proffer_list_deny\002´.
+ * \002proffer_list_file\002 <file>
+   -- If this is set, the <file> will have an updated file list for the xdcc. This is useful
+      for serving for example in pack #1, or through an http server. Just set
+      \002proffer_list_deny\002 to point people in the direction of this file.
+ * \002proffer_hide\002 <ON|OFF>
+   -- Set to on to hide xdcc messages sent to you and responses you send. This will not hide
+      file transfers.
+ * \002proffer_queues\002 <num>
+   -- Set how many queue-slots you want to provide.
+ * \002proffer_queues_user\002 <num>
+   -- Set the maximum number of queues a single user can have.
+ * \002proffer_slots\002 <num>
+   -- Set how many send slots you want to provide.
+ * \002proffer_slots_user\002 <num>
+   -- Set the maximum number of slots a single user can have.
+
+\002See also
+ /help ...
+ proffer add        proffer add_ann    proffer announce   proffer del
+ proffer list       proffer mov        proffer queue
+END
+
+my $help_add      = <<END;
+\002proffer add
+
+\002Syntax
+ * /proffer add <file|dir>
+
+Use this command to add a file to the xdcc file list. If you specify a directory,
+every file in that directory and every subdirectory will be added except files and
+subdirectories whose name starts with a period `.´.
+
+\002Examples
+ * /proffer add ~/my file.tar.gz
+ * /proffer add /home/user/
+
+\002See also
+ /help ...
+ proffer add_ann    proffer del        proffer mov
+END
+
+my $help_add_ann  = <<END;
+\002proffer add_ann
+
+\002Syntax
+ * /proffer add_ann <file|dir>
+
+This command does the same as `\002proffer add\002´ as well as announcing any added
+pack in the channels set in `\002proffer_channels\002´:
+  [\002added\002] <filename> - /msg <your_nick> xdcc send #<pack>
+
+\002See also
+ /help ...
+ proffer add
+END
+
+my $help_announce = <<END;
+\002proffer announce
+
+\002Syntax
+ * /proffer announce <num> <message>
+
+This command announces the specified pack in the channels set in `\002proffer_channels\002´:
+  [\002<message>\002] <filename> - /msg <your_nick> xdcc send #<num>
+Use it if you want to call extra attention to a certain pack.
+
+\002See also
+ /help ...
+ proffer add_ann
+END
+
+my $help_del      = <<END;
+\002proffer del
+
+\002Syntax
+ * /proffer del <num>
+
+Use this command to delete a pack from the file list. No actual file will be deleted.
+
+\002See also
+ /help ...
+ proffer add
+END
+
+my $help_list     = <<END;
+\002proffer list
+
+\002Syntax
+ * /proffer list
+
+This displays the xdcc list.
+END
+
+my $help_mov      = <<END;
+\002proffer mov
+
+\002Syntax
+ * /proffer mov <from> <to>
+
+Use this command to move a pack in the xdcc list from number <from> to number <to>.
+END
+
+my $help_queue    = <<END;
+\002proffer queue
+
+\002Syntax
+ * /proffer queue
+
+This displays the current queue.
+END
+
+sub irssi_help {
+	my ($data) = @_;
+	if ($data =~ /^proffer\b/i) {
+		my $help = "No help for $data.";
+		given ($data) {
+			when (/^proffer\s*$/i)          { $help = sprintf($help_main, $VERSION); }
+			when (/^proffer add\s*$/i)      { $help = $help_add; }
+			when (/^proffer add_ann\s*$/i)  { $help = $help_add_ann; }
+			when (/^proffer announce\s*$/i) { $help = $help_announce; }
+			when (/^proffer del\s*$/i)      { $help = $help_del; }
+			when (/^proffer list\s*$/i)     { $help = $help_list; }
+			when (/^proffer mov\s*$/i)      { $help = $help_mov; }
+			when (/^proffer queue\s*$/i)    { $help = $help_queue; }
+		}
+		Irssi::print($help);
+		Irssi::signal_stop();
+	}
 }
 
 if (HAVE_IRSSI) {

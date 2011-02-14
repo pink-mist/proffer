@@ -72,7 +72,6 @@ No other known bugs at this time.
 
 These are things that are planned for the next minor release:
 
- * Add irssi help messages
  * Provide auto-completion routines
  * Make commands into subcommands
  * Add a statusbar field with quick info
