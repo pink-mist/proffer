@@ -51,6 +51,7 @@ my $state         = {
 };
 my $loaded        = 0;
 my @renames       = ();
+my $do_update     = 1;
 
 BEGIN {
 	*HAVE_IRSSI = Irssi->can('command_bind') ? sub {1} : sub {0};
@@ -78,7 +79,10 @@ sub do_display {
 	if (not defined $debuglvl) { $debuglvl = 0; }
 	if ($debuglvl > $debug) { return 0; }
 
-	map { print "\002proffer:\002 $_" } split("\n", $message);
+	if (HAVE_IRSSI) {
+		map { Irssi::print("\002proffer:\002 $_", Irssi::MSGLEVEL_CLIENTCRAP) } split("\n", $message);
+	}
+	else { print $message; }
 
 	return 1;
 }
@@ -342,6 +346,13 @@ sub pack_info {
 }
 
 sub update_status {
+	#need to add a timeout to update so we don't rape the hdd too much
+	if ($do_update) {
+		$do_update = 0;
+		Irssi::timeout_add_once(1000, sub { $do_update = 1; update_status() }, undef);
+	}
+	else { return 0; }
+
 	#update list file if set
 	if ($list_file ne '') {
 		my $nick = defined Irssi::active_server() ? Irssi::active_server()->{'nick'} : Irssi::settings_get_str('nick');
@@ -644,7 +655,7 @@ sub irssi_cancel_sends {
 	map { $_->destroy(); } @dccs;
 	if (scalar(@dccs)) {
 		do_reply("$tag, $nick", sprintf("Aborted %d sends.", scalar(@dccs)));
-		do_display("XDCC CANCEL: %s requested that all sends be cancelled, so aborted %d sends to him.", $nick, scalar(@dccs)); }
+		do_display(sprintf("XDCC CANCEL: %s requested that all sends be cancelled, so aborted %d sends to him.", $nick, scalar(@dccs))); }
 	else {
 		do_reply("$tag, $nick", "You don't have a transfer running."); return 0; }
 
