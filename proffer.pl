@@ -258,7 +258,7 @@ sub byte_suffix {
 	do_display('entered byte_suffix', 2);
 	my $size = shift; if (not defined $size) { $size = 0; }
 	my $suffix = 'B';
-	if (/^\d+$/ !~ $size) { $size = 0; }
+	if ($size !~ /^\d+$/) { $size = 0; }
 	if ($size >= 1000) { $size = int($size/1024); $suffix = 'k';
 		if ($size >= 1000) { $size = int($size/1024); $suffix = 'M';
 			if ($size >= 1000) { $size = int($size/1024); $suffix = 'G';
@@ -271,7 +271,7 @@ sub byte_suffix_dec {
 	do_display('entered byte_suffix_dec', 2);
 	my $size = shift; if (not defined $size) { $size = 0; }
 	my $suffix = 'B';
-	if (/^\d+$/ !~ $size) { $size = 0; }
+	if ($size !~ /^\d+$/) { $size = 0; }
 	if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'kB';
 		if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'MB';
 			if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'GB';
