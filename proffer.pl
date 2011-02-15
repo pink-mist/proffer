@@ -68,35 +68,46 @@ For further help see \002/help proffer
 \002---------------------------------------------------------------------------------
 END
 	chomp($introstr);
-	printf($introstr, $VERSION);
+	do_display(sprintf($introstr, $VERSION));
 	read_state();
+}
+
+sub do_display {
+	my ($message, $debuglvl) = @_;
+	if (not defined $debuglvl) { $debuglvl = 0; }
+	if ($debuglvl > $debug) { return 0; }
+
+	map { print "\002proffer:\002 $_" } split("\n", $message);
+
+	return 1;
 }
 
 sub do_add {
 	my ($path, $msg) = @_;
-	if (not defined $path) { return undef; }
-	print "Debug: $path" if ($debug > 1);
+	if (not defined $path) { do_display("/proffer add: You need to specify a file or directory."); return 0; }
+	do_display("/proffer add: $path", 1);
 	if ($path =~ /^~/) { my $home = File::HomeDir->my_home(); $path =~ s/^~/$home/; }
 	$path = abs_path($path);
 
-	my @return = ();
-	if (file_exists($path)) { @return = ("Couldn't add $path. It is already in the xdcc list."); }
+	if (file_exists($path)) { do_display("/proffer add: Couldn't add $path. It is already in the xdcc list."); return 0; }
 	elsif (-f $path) {
 		my ($fname, undef, undef) = fileparse($path);
 		push @files, { downloads => 0, file => $path , name => $fname };
 		if (defined $msg) { do_announce( [ scalar(@files), $msg ] ); }
-		@return = ("Added $path.");
+		do_display("/proffer add: Added $path.");
 	}
 	elsif (-d $path) {
-		opendir(my $dh, $path) or return "Could not open dir: $path.";
+		my $dh;
+		unless (opendir($dh, $path)) { do_display("/proffer add: Could not open dir: $path."); return 0; }
 		my @paths = sort grep {!/^\./} readdir($dh);
 		closedir($dh);
-		foreach (@paths) { push @return, do_add("$path/$_", $msg); }
-		if (not @paths) { push @return, "No file found in $path."; }
+		foreach (@paths) { do_add("$path/$_", $msg); }
+		if (not @paths) { do_display("/proffer add: No file found in $path."); }
 	}
-	else { @return = ("Could not stat $path."); }
+	else { do_display("/proffer add: Could not stat $path."); return 0; }
+
 	update_file() if ($list_file ne '');
-	return join("\n", @return);
+	return 1;
 }
 
 sub file_exists {
@@ -107,32 +118,39 @@ sub file_exists {
 
 sub do_announce {
 	my ($num, $msg) = @_;
-	if ($num !~ /^\d+$/) { return 0; }
-	if (not defined $files[$num-1]) { return 0; }
+	if ($num !~ /^\d+$/) { do_display("/proffer announce: Invalid arguments. Need a pack number."); return 0; }
+	if (not defined $files[$num-1]) { do_display("/proffer announce: Number $num out of bounds."); return 0; }
 	my @channels = ();
 	if (HAVE_IRSSI) {
 		foreach my $channel (split(" ", $channels)) {
 			my $server = Irssi::channel_find($channel)->{'server'};
-			if (not $server->{'connected'}) { next; }
+			if ((not defined $server) || (not $server->{'connected'})) {
+				do_display("/proffer announce: We do not seem to be in $channel. Skipping."); next; }
 			push @channels, $channel;
 
 			my $file = $files[$num-1]->{'name'};
 			my $nick = $server->{'nick'};
 			my $message = "[\002$msg\002] $file - /msg $nick xdcc send #$num";
-			$server->send_message($channel, $message, 0);
+			$hide ? $server->send_raw("PRIVMSG $channel :$message") : $server->command("MSG $channel $message");
 		}
 	}
-	print "Announced pack $num in channels: " . join(" ", @channels);
+	scalar(@channels) ?
+			do_display("/proffer announce: Announced pack $num in channels: " . join(" ", @channels)) :
+			do_display("/proffer announce: Did not announce pack $num in any channel.");
+
 	return 1;
 }
 
 sub do_del {
 	my $num = shift;
-	if ($num !~ /^\d+$/) { return undef; }
+	if ($num !~ /^\d+$/) { do_display("/proffer del: Invalid arguments. Need a pack number."); return 0; }
+	if (not defined $files[$num-1]) { do_display("/proffer del: Number $num out of bounds."); return 0; }
 
 	my ($file) = splice(@files, $num-1, 1);
 	update_file() if ($list_file ne '');
-	return sprintf("Deleted %s, downloaded %d times.", $file->{'name'}, $file->{'downloads'});
+	do_display(sprintf("/proffer del: Deleted %s, downloaded %d times.", $file->{'name'}, $file->{'downloads'}));
+
+	return 1;
 }
 
 sub do_mov {
@@ -140,15 +158,16 @@ sub do_mov {
 	if (($from !~ /^\d+$/) || ($to !~ /^\d+$/)) { return undef; }
 	$from--; $to--;
 	if (($from < 0) || ($to < 0) || ($from > $#files) || ($to > $#files)) {
-		return sprintf("Index out of bounds. Must be between %d and %d.", 1, $#files+1); }
-	if ($from == $to) { return "Can't move file to itself."; }
+		do_display(sprintf("/proffer mov: Index out of bounds. Must be between %d and %d.", 1, $#files+1)); return 0; }
+	if ($from == $to) { do_display("/proffer mov: Can't move file to itself."); return 0; }
 
 	my $item = splice(@files, $from, 1);
 	my @end = splice(@files, $to);
 	push @files, $item, @end;
 	update_file() if ($list_file ne '');
+	do_display(sprintf("/proffer mov: Moved %s to %d.", $item->{'name'}, $to+1));
 
-	return sprintf("Moved %s to %d.", $item->{'name'}, $to+1);
+	return 1;
 }
 
 sub return_list {
@@ -208,20 +227,22 @@ sub save_state {
 	if (HAVE_IRSSI) { $state_file = Irssi::get_irssi_dir() . '/proffer.state'; }
 	else { $state_file = File::HomeDir->my_home() . '/.proffer.state'; }
 
-	open (my $fh, '>', $state_file);
+	open (my $fh, '>', $state_file) or die "Could not save state to $state_file: $!";
 	print $fh join("\n",
 			$state->{'transferred'},
 			$state->{'record_speed'},
 			$state->{'record_transfer'},
 			map {$_->{'downloads'} . " " . $_->{'file'}} @files);
 	close ($fh);
+
+	return 1;
 }
 
 sub read_state {
 	my $state_file;
 	if (HAVE_IRSSI) { $state_file = Irssi::get_irssi_dir() . '/proffer.state'; }
 	else { $state_file = File::HomeDir->my_home() . '/.proffer.state'; }
-	if (!-f $state_file) { return; }
+	if (!-f $state_file) { return 0; }
 
 	open (my $fh, '<', $state_file);
 	my @lines = <$fh>;
@@ -240,16 +261,34 @@ sub read_state {
 		}
 		else { die "Could not properly parse state file $state_file. Has it been corrupted?"; }
 	}
+
+	return 1;
 }
 
 sub do_queue {
 	my ($id, $pack) = @_;
 
-	if (grep { ($_->{'id'} eq $id) and ($_->{'pack'} eq $pack) } @queue) { return "You already queued pack #$pack."; }
+	if (grep { ($_->{'id'} eq $id) and ($_->{'pack'} eq $pack) } @queue) {
+		do_reply($id, "You already queued pack #$pack."); return 0; }
 
 	push @queue, { id => $id, pack => $pack };
 	update_file() if ($list_file ne '');
-  return sprintf("Added you to the main queue for pack #%d in position %d.", $pack, $#queue+1);
+	do_reply($id, sprintf("Added you to the main queue for pack #%d in position %d.", $pack, $#queue+1));
+
+	return 1;
+}
+
+sub do_reply {
+	my ($id, $message) = @_;
+	if (HAVE_IRSSI) {
+		unless($id =~ /^(.*), (.*)$/) { die "FATAL ERROR: Could not parse id: $id."; }
+		my ($tag, $nick) = ($1, $2);
+		my $server = Irssi::server_find_tag($tag);
+		if (not defined $server) { do_display("do_reply: ERROR: Could not find server belonging to tag: $tag."); return 0; }
+		irssi_reply($server, $nick, $message);
+	}
+
+	return 1;
 }
 
 sub slots_available {
@@ -286,17 +325,19 @@ sub user_queues_available {
 }
 
 sub pack_info {
-	my $pack = shift;
+	my ($id, $pack) = @_;
 	my $file = $files[$pack-1];
-	if (not defined $file) { return "Invalid pack number. Try again."; }
+	if (not defined $file) { do_reply($id, "Invalid pack number. Try again."); return 0; }
 
 	my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = stat($file->{'file'});
-
-	return sprintf("Pack info for pack #%d:\n" .
+	do_reply($id,
+			sprintf("Pack info for pack #%d:\n" .
 			" Filename       %s\n" .
 			" Filesize       %d [%s]\n" .
 			" Last Modified  %s\n" .
-			" Gets           %d", $pack, $file->{'name'}, $size, byte_suffix_dec($size), scalar(gmtime($mtime)), $file->{'downloads'});
+			" Gets           %d", $pack, $file->{'name'}, $size, byte_suffix_dec($size), scalar(gmtime($mtime)), $file->{'downloads'}));
+
+	return 1;
 }
 
 sub update_file {
@@ -304,17 +345,22 @@ sub update_file {
 	my $fh;
 	my $fname = $list_file; my $home = File::HomeDir->my_home();
 	$fname =~ s/^~/$home/;
-	if (not open($fh, '>', $fname)) { warn "Could not open file $list_file: $!"; return; };
+	if (not open($fh, '>', $fname)) { do_display("XDCC LIST FILE: Could not open file $list_file: $!."); return 0; };
 	print $fh $lines;
 	close $fh;
+
+	return 1;
 }
 
 sub remove_queues {
 	my $id = shift;
 	my $num = @queue;
 	@queue = grep { $_->{'id'} ne $id } @queue;
-	if ($num != scalar(@queue)) { return sprintf("Removed you from %d queues.", $num-scalar(@queue)); }
-	else { return "You don't appear to be in a queue."; }
+	if ($num != scalar(@queue)) {
+		do_reply($id, sprintf("Removed you from %d queues.", $num-scalar(@queue))); }
+	else { do_reply($id, "You don't appear to be in a queue."); return 0; }
+
+	return 1;
 }
 
 sub max { return ($_[0] > $_[1]) ? $_[0] : $_[1]; }
@@ -377,38 +423,34 @@ sub irssi_proffer {
 
 sub irssi_add {
 	my ($data, $server, $witem) = @_;
-	my $return = do_add($data) || "\002proffer:\002 add -- erroneous arguments: $data";
-	Irssi::print($return);
+	do_add($data);
 }
 
 sub irssi_add_ann {
 	my ($data, $server, $witem) = @_;
-	my $return = do_add($data, "added") || "\002proffer:\002 add_ann -- erroneous arguments: $data";
-	Irssi::print($return);
+	do_add($data, "added");
 }
 
 sub irssi_announce {
 	my ($data, $server, $witem) = @_;
 	my @parse = parse_line(" ", 0, $data);
-	my $return = do_announce(@parse) or Irssi::print("\002proffer:\002 announce -- erroneous arguments: $data");
+	do_announce(@parse);
 }
 
 sub irssi_del {
 	my ($data, $server, $witem) = @_;
-	my $return = do_del($data) || "\002proffer:\002 del -- erroneous arguments: $data";
-	Irssi::print($return);
+	do_del($data);
 }
 
 sub irssi_mov {
 	my ($data, $server, $witem) = @_;
-	my @parse = quotewords(" ", 0, $data);
-	my $return = do_mov(@parse) || "\002proffer:\002 mov -- erroneous arguments: $data";
-	Irssi::print($return);
+	my @parse = parse_line(" ", 0, $data);
+	do_mov(@parse);
 }
 
 sub irssi_list {
 	my $nick = defined Irssi::active_server() ? Irssi::active_server()->{'nick'} : Irssi::settings_get_str('nick');
-	Irssi::print(return_list($nick));
+	do_display(return_list($nick));
 }
 
 sub irssi_reload {
@@ -424,7 +466,7 @@ sub irssi_reload {
 	$val = Irssi::settings_get_str( 'proffer_list_deny');     if ($val ne $list_deny)     { $list_deny     = $val; $updated = 1; }
 	$val = Irssi::settings_get_str( 'proffer_list_file');     if ($val ne $list_file)     { $list_file     = $val; $updated = 1; }
 	$val = Irssi::settings_get_bool('proffer_restrict_send'); if ($val ne $restrict_send) { $restrict_send = $val; $updated = 1; }
-	Irssi::print('proffer updated.') if $debug && $updated;
+	do_display('updated', 1) if $updated;
 	update_file() if ($list_file ne '') && $updated;
 
 	#update statusbar
@@ -436,8 +478,7 @@ sub irssi_handle_pm {
   if ($msg =~ /^xdcc /i) {
 		if ((not $restrict_send) || (irssi_check_channels($server, $nick))) {
 			Irssi::signal_stop() if $hide;
-			my $return = irssi_handle_xdcc($server, $nick, $msg);
-			Irssi::print($return) if defined $return;
+			irssi_handle_xdcc($server, $nick, $msg);
 		}
 	}
 }
@@ -546,19 +587,19 @@ sub irssi_next_queue {
 		my $num = 0;
 		foreach my $queue (@queue) {
 			if (user_slots_available($queue->{'id'})) {
-				printf("Sending queue #%d to %s.", $num+1, $queue->{'id'}) unless $hide;
+				do_display(sprintf("XDCC QUEUE: Sending queue #%d to %s.", $num+1, $queue->{'id'})) unless $hide;
 				my ($add) = splice(@queue, $num, 1);
 				$add->{'id'} =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
 				my $server = Irssi::server_find_tag($tag);
 				irssi_send($server, $nick, $add->{'pack'});
 				last;
 			}
-			else { printf("Can't send to %s.", $queue->{'id'}) if ($debug > 2); }
+			else { do_display(sprintf("XDCC QUEUE: Can't send to %s.", $queue->{'id'}), 2); }
 			$num++;
 		}
 	}
-	else { print "irssi_next_queue: no slots available :(" if ($debug > 2); }
-	print "irssi_next_queue: finished." if ($debug > 2);
+	else { do_display("XDCC QUEUE: no slots available :(", 2); }
+	do_display("XDCC QUEUE: finished.", 2);
 	update_file() if ($list_file ne '');
 
 	#update statusbar
@@ -576,23 +617,30 @@ sub irssi_queue {
 	}
 	my $num = 0;
 	map {
-			printf("Queue %d: %s -> %d (%s)", ++$num, $_->{'id'}, $_->{'pack'}, $files[$_->{'pack'}-1]->{'name'});
+			do_display(sprintf("Queue %d: %s - #%d -- (%s)", ++$num, $_->{'id'}, $_->{'pack'}, $files[$_->{'pack'}-1]->{'name'}));
 		} @queue;
-	print "proffer: End of queue.";
+	do_display("End of queue.");
+
+	return 1;
 }
 
 sub irssi_cancel_sends {
 	my ($server, $nick) = @_;
+	my $tag = $server->{'tag'};
 	my @dccs = grep { $_->{'type'} eq 'SEND' and
-				$_->{'servertag'} eq $server->{'tag'} and
+				$_->{'servertag'} eq $tag and
 				$_->{'nick'} eq $nick } Irssi::Irc::dccs();
 
 	map { $_->destroy(); } @dccs;
-	if (scalar(@dccs)) { return sprintf("Aborted %d sends.", scalar(@dccs)); }
-	else { return "You don't have a transfer running."; }
+	if (scalar(@dccs)) {
+		do_reply("$tag, $nick", sprintf("Aborted %d sends.", scalar(@dccs))); }
+	else {
+		do_reply("$tag, $nick", "You don't have a transfer running."); return 0; }
 
 	#update statusbar
 	Irssi::statusbar_items_redraw('proffer');
+
+	return 1;
 }
 
 sub irssi_check_queue {
@@ -627,7 +675,9 @@ sub irssi_queue_force {
 		$item->{'id'} =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
 		irssi_send(Irssi::server_find_tag($tag), $nick, $item->{'pack'});
 	}
-	else { Irssi::print("Queue force error: $data isn't a packnumber."); }
+	else { do_display("/proffer queue force: You need to supply a valid queue number."); return 0; }
+
+	return 1;
 }
 
 sub irssi_queue_del {
@@ -635,9 +685,11 @@ sub irssi_queue_del {
 
 	if (($data =~ /^\d+\s*$/) && (exists $queue[$data-1])) {
 		splice(@queue, $data-1, 1);
-		Irssi::print("Removed queue number $data.");
+		do_display("/proffer queue del: Removed queue number $data.");
 	}
-	else { Irssi::print("No such queue: $data."); }
+	else { do_display("/proffer queue del: You need to supply a valid queue number."); return 0; }
+
+	return 1;
 }
 
 sub irssi_queue_mov {
@@ -648,11 +700,11 @@ sub irssi_queue_mov {
 			my $item = splice(@queue, $from-1, 1);
 			my @end = splice(@queue, $to-1);
 			push @queue, $item, @end;
-			Irssi::print("Moved queue $from to $to.");
+			do_display("/proffer queue mov: Moved queue from $from to $to.");
 		}
-		else { Irssi::print(sprintf("Could not move %d to %d: Index out of bounds.", ++$from, ++$to)); }
+		else { do_display(sprintf("/proffer queue mov: Could not move %d to %d: Index out of bounds.", ++$from, ++$to)); }
 	}
-	else { Irssi::print("Need two numbers to move from and to. Not: $data."); }
+	else { do_display("/proffer queue mov: You need to supply valid queue numbers."); }
 }
 
 my $help_main = <<END;
@@ -817,7 +869,7 @@ sub irssi_help {
 			when (/^proffer mov\s*$/i)      { $help = $help_mov; }
 			when (/^proffer queue\s*$/i)    { $help = $help_queue; }
 		}
-		Irssi::print($help);
+		do_display($help);
 		Irssi::signal_stop();
 	}
 }
