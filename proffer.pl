@@ -643,7 +643,8 @@ sub irssi_cancel_sends {
 
 	map { $_->destroy(); } @dccs;
 	if (scalar(@dccs)) {
-		do_reply("$tag, $nick", sprintf("Aborted %d sends.", scalar(@dccs))); }
+		do_reply("$tag, $nick", sprintf("Aborted %d sends.", scalar(@dccs)));
+		do_display("XDCC CANCEL: %s requested that all sends be cancelled, so aborted %d sends to him.", $nick, scalar(@dccs)); }
 	else {
 		do_reply("$tag, $nick", "You don't have a transfer running."); return 0; }
 
