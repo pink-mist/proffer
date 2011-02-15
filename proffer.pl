@@ -60,6 +60,7 @@ BEGIN {
 }
 
 sub init {
+	do_display('entered init', 2);
 	my $introstr = <<END;
 \002---------------------------------------------------------------------------------
 \002proffer - lets your irssi serve files as an xdcc bot
@@ -91,6 +92,7 @@ sub do_display {
 }
 
 sub do_add {
+	do_display('entered do_add', 2);
 	my ($path, $msg) = @_;
 	if (not defined $path) { do_display("/proffer add: You need to specify a file or directory."); return 0; }
 	do_display("/proffer add: $path", 1);
@@ -119,12 +121,14 @@ sub do_add {
 }
 
 sub file_exists {
+	do_display('entered file_exists', 2);
 	my $file = shift;
 	if (grep {$_->{'file'} eq $file} @files) { return 1; }
 	return 0;
 }
 
 sub do_announce {
+	do_display('entered do_announce', 2);
 	my ($num, $msg) = @_;
 	if ($num !~ /^\d+$/) { do_display("/proffer announce: Invalid arguments. Need a pack number."); return 0; }
 	if (not defined $files[$num-1]) { do_display("/proffer announce: Number $num out of bounds."); return 0; }
@@ -150,6 +154,7 @@ sub do_announce {
 }
 
 sub do_del {
+	do_display('entered do_del', 2);
 	my $num = shift;
 	if ($num !~ /^\d+$/) { do_display("/proffer del: Invalid arguments. Need a pack number."); return 0; }
 	if (not defined $files[$num-1]) { do_display("/proffer del: Number $num out of bounds."); return 0; }
@@ -166,6 +171,7 @@ sub do_del {
 }
 
 sub do_mov {
+	do_display('entered do_mov', 2);
 	my ($from, $to) = @_;
 	if (($from !~ /^\d+$/) || ($to !~ /^\d+$/)) {
 		do_display("/proffer mov: You need to supply two packnumbers to move from/to."); return 0; }
@@ -190,6 +196,7 @@ sub do_mov {
 }
 
 sub return_list {
+	do_display('entered return_list', 2);
 	my $nick = shift;
 	my $msg_beg = <<END;
 **  %d packs  **  %d of %d slots open, Record: %s/s
@@ -215,6 +222,7 @@ END
 }
 
 sub return_short_list {
+	do_display('entered return_short_list', 2);
 	my $num = 0;
 	my @return = map {
 				sprintf("#%d: %s(%s)", ++$num, $_->{'name'}, byte_suffix(-s $_->{'file'}))
@@ -225,6 +233,7 @@ sub return_short_list {
 }
 
 sub split_max_len {
+	do_display('entered split_max_len', 2);
 	my $split_re = shift;
 	my $max_len  = shift;
 	my $string   = shift;
@@ -240,11 +249,13 @@ sub split_max_len {
 }
 
 sub current_speed {
+	do_display('entered current_speed', 2);
 	if (HAVE_IRSSI) { return byte_suffix_dec(irssi_current_speed()); }
 	else { return byte_suffix_dec(0); }
 }
 
 sub byte_suffix {
+	do_display('entered byte_suffix', 2);
 	my $size = shift; if (not defined $size) { $size = 0; }
 	my $suffix = 'B';
 	if (/^\d+$/ !~ $size) { $size = 0; }
@@ -257,6 +268,7 @@ sub byte_suffix {
 }
 
 sub byte_suffix_dec {
+	do_display('entered byte_suffix_dec', 2);
 	my $size = shift; if (not defined $size) { $size = 0; }
 	my $suffix = 'B';
 	if (/^\d+$/ !~ $size) { $size = 0; }
@@ -269,6 +281,7 @@ sub byte_suffix_dec {
 }
 
 sub save_state {
+	do_display('entered save_state', 2);
 	my $state_file;
 	if (HAVE_IRSSI) { $state_file = Irssi::get_irssi_dir() . '/proffer.state'; }
 	else { $state_file = File::HomeDir->my_home() . '/.proffer.state'; }
@@ -285,6 +298,7 @@ sub save_state {
 }
 
 sub read_state {
+	do_display('entered read_state', 2);
 	my $state_file;
 	if (HAVE_IRSSI) { $state_file = Irssi::get_irssi_dir() . '/proffer.state'; }
 	else { $state_file = File::HomeDir->my_home() . '/.proffer.state'; }
@@ -311,6 +325,7 @@ sub read_state {
 }
 
 sub do_queue {
+	do_display('entered do_queue', 2);
 	my ($id, $pack) = @_;
 
 	if (grep { ($_->{'id'} eq $id) and ($_->{'pack'} eq $pack) } @queue) {
@@ -324,6 +339,7 @@ sub do_queue {
 }
 
 sub do_reply {
+	do_display('entered do_reply', 2);
 	my ($id, $message) = @_;
 	if (HAVE_IRSSI) {
 		unless($id =~ /^(.*), (.*)$/) { die "FATAL ERROR: Could not parse id: $id."; }
@@ -337,6 +353,7 @@ sub do_reply {
 }
 
 sub slots_available {
+	do_display('entered slots_available', 2);
 	if (HAVE_IRSSI) {
 		my @dccs = grep { $_->{'type'} eq 'SEND' } Irssi::Irc::dccs();
 		return max($slots - scalar(@dccs), 0);
@@ -345,6 +362,7 @@ sub slots_available {
 }
 
 sub user_slots_available {
+	do_display('entered user_slots_available', 2);
 	my $id = shift;
 	if (HAVE_IRSSI) {
 		$id =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
@@ -361,16 +379,19 @@ sub user_slots_available {
 }
 
 sub queues_available {
+	do_display('entered queues_available', 2);
 	return max($queues - scalar(@queue),0);
 }
 
 sub user_queues_available {
+	do_display('entered user_queues_available', 2);
 	my $id = shift;
 	my @user_queue = grep {$_->{'id'} eq $id} @queue;
 	return max($queues_user - scalar(@user_queue),0);
 }
 
 sub pack_info {
+	do_display('entered pack_info', 2);
 	my ($id, $pack) = @_;
 	my $file = $files[$pack-1];
 	if (not defined $file) { do_reply($id, "Invalid pack number. Try again."); return 0; }
@@ -387,6 +408,7 @@ sub pack_info {
 }
 
 sub update_status {
+	do_display('entered update_status', 2);
 	#update list file if set
 	if ($list_file ne '') {
 		my $nick = defined Irssi::active_server() ? Irssi::active_server()->{'nick'} : Irssi::settings_get_str('nick');
@@ -406,6 +428,7 @@ sub update_status {
 }
 
 sub remove_queues {
+	do_display('entered remove_queues', 2);
 	my $id = shift;
 	my $num = @queue;
 	@queue = grep { $_->{'id'} ne $id } @queue;
@@ -422,6 +445,7 @@ sub max { return ($_[0] > $_[1]) ? $_[0] : $_[1]; }
 
 # Irssi specific routines
 sub irssi_init {
+	do_display('entered irssi_init', 2);
 	require Irssi::Irc;
 	require Irssi::TextUI;
 
@@ -472,44 +496,52 @@ sub irssi_init {
 }
 
 sub irssi_proffer {
+	do_display('entered irssi_proffer', 2);
 	my ($data, $server, $item) = @_;
 	$data =~ s/\s+$//g;
 	Irssi::command_runsub('proffer', $data, $server, $item);
 }
 
 sub irssi_add {
+	do_display('entered irssi_add', 2);
 	my ($data, $server, $witem) = @_;
 	do_add($data);
 }
 
 sub irssi_add_ann {
+	do_display('entered irssi_add_ann', 2);
 	my ($data, $server, $witem) = @_;
 	do_add($data, "added");
 }
 
 sub irssi_announce {
+	do_display('entered irssi_announce', 2);
 	my ($data, $server, $witem) = @_;
 	my @parse = parse_line(" ", 0, $data);
 	do_announce(@parse);
 }
 
 sub irssi_del {
+	do_display('entered irssi_del', 2);
 	my ($data, $server, $witem) = @_;
 	do_del($data);
 }
 
 sub irssi_mov {
+	do_display('entered irssi_mov', 2);
 	my ($data, $server, $witem) = @_;
 	my @parse = parse_line(" ", 0, $data);
 	do_mov(@parse);
 }
 
 sub irssi_list {
+	do_display('entered irssi_list', 2);
 	my $nick = defined Irssi::active_server() ? Irssi::active_server()->{'nick'} : Irssi::settings_get_str('nick');
 	do_display(return_list($nick));
 }
 
 sub irssi_reload {
+	do_display('entered irssi_reload', 2);
 	my $val;
 	my $updated = 0;
 
@@ -530,6 +562,7 @@ sub irssi_reload {
 }
 
 sub irssi_handle_pm {
+	do_display('entered irssi_handle_pm', 2);
 	my ($server, $msg, $nick, $host) = @_;
 	if ($msg =~ /^xdcc /i) {
 		if ((not $restrict_send) || (irssi_check_channels($server, $nick))) {
@@ -544,6 +577,7 @@ sub irssi_handle_pm {
 }
 
 sub irssi_handle_public {
+	do_display('entered irssi_handle_public', 2);
 	my ($server, $msg, $nick, $host, $target) = @_;
 	if ($target ~~ [split(' ', $channels)]) {
 		if ($msg =~ /^xdcc list$/) {
@@ -559,6 +593,7 @@ sub irssi_handle_public {
 }
 
 sub irssi_check_channels {
+	do_display('entered irssi_check_channels', 2);
 	my ($server, $nick) = @_;
 
 	#go through each channel that is also in $channels variable
@@ -569,6 +604,7 @@ sub irssi_check_channels {
 }
 
 sub irssi_handle_xdcc {
+	do_display('entered irssi_handle_xdcc', 2);
 	my ($server, $nick, $msg) = @_;
 	my $id = $server->{'tag'} . ", $nick";
 	given ($msg) {
@@ -582,6 +618,7 @@ sub irssi_handle_xdcc {
 }
 
 sub irssi_handle_list {
+	do_display('entered irssi_handle_list', 2);
 	my ($server, $nick) = @_;
 	my $id = $server->{'tag'} . ", $nick";
 
@@ -589,6 +626,7 @@ sub irssi_handle_list {
 }
 
 sub irssi_reply {
+	do_display('entered irssi_reply', 2);
 	my ($server, $nick, $msg) = @_;
 
 	#if the line of the message isn't empty, /notice it to $nick
@@ -600,6 +638,7 @@ sub irssi_reply {
 }
 
 sub irssi_try_send {
+	do_display('entered irssi_try_send', 2);
 	my ($server, $nick, $pack) = @_;
 	my $tag = $server->{'tag'}; # use "$tag, $nick" to identify a specific nick on a specific server
 
@@ -614,6 +653,7 @@ sub irssi_try_send {
 }
 
 sub irssi_send {
+	do_display('entered irssi_send', 2);
 	my ($server, $nick, $pack) = @_;
 	my $file = $files[--$pack];
 	if (not defined $file) { irssi_reply($server, $nick, "Invalid pack number. Try again."); return; }
@@ -629,6 +669,7 @@ sub irssi_send {
 }
 
 sub irssi_dcc_update {
+	do_display('entered irssi_dcc_update', 2);
 	my $dcc = shift;
 
 	#track renames
@@ -651,6 +692,7 @@ sub irssi_dcc_update {
 }
 
 sub irssi_current_speed {
+	do_display('entered irssi_current_speed', 2);
 	my @dccs = grep { $_->{'type'} eq 'SEND' } Irssi::Irc::dccs();
 
 	my $cum_speed = 0; #fun to shorten cumulative as cum :3
@@ -666,6 +708,7 @@ sub irssi_current_speed {
 }
 
 sub irssi_dcc_closed {
+	do_display('entered irssi_dcc_closed', 2);
 	my $closed = shift;
 	$state->{'transferred'} += ($closed->{'transfd'} - $closed->{'skipped'});
 	@renames = grep { $_->{'id'} ne $closed->{'_irssi'} } @renames;
@@ -673,6 +716,7 @@ sub irssi_dcc_closed {
 }
 
 sub irssi_next_queue {
+	do_display('entered irssi_next_queue', 2);
 	if (slots_available()) {
 		my $num = 0;
 		foreach my $queue (@queue) {
@@ -696,6 +740,7 @@ sub irssi_next_queue {
 }
 
 sub irssi_queue {
+	do_display('entered irssi_queue', 2);
 	my ($data, $server, $item) = @_;
 	if ($data ne '') {
 		Irssi::command_runsub('proffer queue', $data, $server, $item);
@@ -713,6 +758,7 @@ sub irssi_queue {
 }
 
 sub irssi_cancel_sends {
+	do_display('entered irssi_cancel_sends', 2);
 	my ($server, $nick) = @_;
 	my $tag = $server->{'tag'};
 	my @dccs = grep { $_->{'type'} eq 'SEND' and
@@ -732,6 +778,7 @@ sub irssi_cancel_sends {
 }
 
 sub irssi_check_queue {
+	do_display('entered irssi_check_queue', 2);
 	if ($restrict_send) {
 		#removes from queue anyone who isn't in a monitored channel
 		@queue = grep { $_->{'id'} =~ /^(.*), (.*)$/ and irssi_check_channels(Irssi::server_find_tag($1), $2)  } @queue;
@@ -739,6 +786,7 @@ sub irssi_check_queue {
 }
 
 sub irssi_handle_nick {
+	do_display('entered irssi_handle_nick', 2);
 	my ($server, $newnick, $oldnick, $host) = @_;
 	my $tag = $server->{'tag'};
 	my $oldid = "$tag, $oldnick"; my $newid = "$tag, $newnick";
@@ -754,6 +802,7 @@ sub irssi_handle_nick {
 }
 
 sub irssi_queue_force {
+	do_display('entered irssi_queue_force', 2);
 	my ($data, $server, $item) = @_;
 
 	if (($data =~ /^\d+\s*$/) && (exists $queue[$data-1])) {
@@ -767,6 +816,7 @@ sub irssi_queue_force {
 }
 
 sub irssi_queue_del {
+	do_display('entered irssi_queue_del', 2);
 	my ($data, $server, $item) = @_;
 
 	if (($data =~ /^\d+\s*$/) && (exists $queue[$data-1])) {
@@ -779,6 +829,7 @@ sub irssi_queue_del {
 }
 
 sub irssi_queue_mov {
+	do_display('entered irssi_queue_mov', 2);
 	my ($data, $server, $item) = @_;
 	if ($data =~ /^(\d+)\s+(\d+)\s*$/) {
 		my ($from, $to) = ($1, $2);
@@ -794,6 +845,7 @@ sub irssi_queue_mov {
 }
 
 sub irssi_proffer_help {
+	do_display('entered irssi_proffer_help', 2);
 	my ($data, $server, $item) = @_;
 	Irssi::command("help proffer");
 }
@@ -949,6 +1001,7 @@ manipulate it in some way.
 END
 
 sub irssi_help {
+	do_display('entered irssi_help', 2);
 	my ($data) = @_;
 	if ($data =~ /^proffer\b/i) {
 		my $help = "No help for $data.";
@@ -968,6 +1021,7 @@ sub irssi_help {
 }
 
 sub irssi_completion {
+	do_display('entered irssi_completion', 2);
 	my ($strings, $window, $word, $linestart, $want_space) = @_;
 	my $stop = 0;
 
@@ -1016,6 +1070,7 @@ sub irssi_completion {
 }
 
 sub irssi_statusbar {
+	do_display('entered irssi_statusbar', 2);
 	my ($sb_item, $get_size_only) = @_;
 	my $statusbar = sprintf('F:%d S:%d/%d Q:%d/%d @%s/s',
 			scalar(@files),                                                     #xdcc list length
@@ -1037,6 +1092,7 @@ else {
 }
 
 sub UNLOAD {
+	do_display('entered UNLOAD', 2);
 	save_state();
 	Irssi::print("Shutting down proffer.") if $debug;
 	Irssi::statusbars_recreate_items();
