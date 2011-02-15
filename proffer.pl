@@ -154,22 +154,33 @@ sub do_del {
 	my ($file) = splice(@files, $num-1, 1);
 	do_display(sprintf("/proffer del: Deleted %s, downloaded %d times.", $file->{'name'}, $file->{'downloads'}));
 
+	@queue = grep { $_->{'pack'} == $num and (do_reply($_->{'id'}, "A pack you were waiting for was deleted: $num.") and 0) } @queue;
+	map { $_->{'pack'} > $num and $_->{'pack'}-- } @queue;
+	do_display("/proffer del: Updated queue numbers.");
+
 	update_status();
 	return 1;
 }
 
 sub do_mov {
 	my ($from, $to) = @_;
-	if (($from !~ /^\d+$/) || ($to !~ /^\d+$/)) { return undef; }
-	$from--; $to--;
-	if (($from < 0) || ($to < 0) || ($from > $#files) || ($to > $#files)) {
+	if (($from !~ /^\d+$/) || ($to !~ /^\d+$/)) {
+		do_display("/proffer mov: You need to supply two packnumbers to move from/to."); return 0; }
+	if (($from <= 0) || ($to <= 0) || ($from > $#files+1) || ($to > $#files+1)) {
 		do_display(sprintf("/proffer mov: Index out of bounds. Must be between %d and %d.", 1, $#files+1)); return 0; }
 	if ($from == $to) { do_display("/proffer mov: Can't move file to itself."); return 0; }
 
-	my $item = splice(@files, $from, 1);
-	my @end = splice(@files, $to);
+	my $item = splice(@files, $from-1, 1);
+	my @end = splice(@files, $to-1);
 	push @files, $item, @end;
-	do_display(sprintf("/proffer mov: Moved %s to %d.", $item->{'name'}, $to+1));
+	do_display(sprintf("/proffer mov: Moved %s to %d.", $item->{'name'}, $to));
+
+	my @nums = $from < $to ? ($from+1 .. $to) : ($to .. $from-1);
+	map {
+			($_->{'pack'} ~~ [@nums] and ($from < $to) ? $_->{'pack'}-- : $_->{'pack'}++) or
+			($_->{'pack'} == $from   and $_->{'pack'} = $to)
+		} @queue;
+	do_display("/proffer mov: Updated queue numbers.");
 
 	update_status();
 	return 1;
