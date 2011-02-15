@@ -662,9 +662,6 @@ sub irssi_handle_nick {
 	map {
 			$_->{'nick'} = $newnick
 		} grep { $_->{'tag'} eq $tag and $_->{'nick'} eq $oldnick } @renames;
-
-	#update statusbar
-	Irssi::statusbar_items_redraw('proffer');
 }
 
 sub irssi_queue_force {
