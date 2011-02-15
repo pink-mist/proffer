@@ -30,30 +30,30 @@ our %info = (
 # 0.1.1 - Most things are working, you can actually use it in a limited capacity
 # 0.1.0 - First version, only some things functioning
 
-my $debug = 0;
+our $debug = 0;
 
 #default values
-my $channels      = '';
-my $slots         = 2;
-my $slots_user    = 1;
-my $queues        = 10;
-my $queues_user   = 3;
-my $hide          = 1;
-my $list_deny     = '';
-my $list_file     = '';
-my $restrict_send = 0;
-my $list_respond  = 0;
+our $channels      = '';
+our $slots         = 2;
+our $slots_user    = 1;
+our $queues        = 10;
+our $queues_user   = 3;
+our $hide          = 1;
+our $list_deny     = '';
+our $list_file     = '';
+our $restrict_send = 0;
+our $list_respond  = 0;
 
-my @files         = ();
-my @queue         = ();
-my $state         = {
+our @files         = ();
+our @queue         = ();
+our $state         = {
 	transferred     => 0,
 	record_speed    => 0,
 	record_transfer => 0
 };
-my $loaded        = 0;
-my @renames       = ();
-my $do_update     = 1;
+our $loaded        = 0;
+our @renames       = ();
+our $do_update     = 1;
 
 BEGIN {
 	*HAVE_IRSSI = Irssi->can('command_bind') ? sub {1} : sub {0};
@@ -852,7 +852,7 @@ sub irssi_proffer_help {
 	Irssi::command("help proffer");
 }
 
-my $help_main = <<END;
+our $help_main = <<END;
 \002proffer
 proffer.pl v%vd is an irssi script to provide xdcc bot functionality created by pink_mist
 (#shameimaru @ irc.rizon.net).
@@ -899,7 +899,7 @@ You can also add a statusbar item which shows info on the status of the xdcc bot
  proffer list       proffer mov        proffer queue
 END
 
-my $help_add      = <<END;
+our $help_add      = <<END;
 \002proffer add
 
 \002Syntax
@@ -918,7 +918,7 @@ subdirectories whose name starts with a period `.´.
  proffer add_ann    proffer del        proffer mov
 END
 
-my $help_add_ann  = <<END;
+our $help_add_ann  = <<END;
 \002proffer add_ann
 
 \002Syntax
@@ -933,7 +933,7 @@ pack in the channels set in `\002proffer_channels\002´:
  proffer add
 END
 
-my $help_announce = <<END;
+our $help_announce = <<END;
 \002proffer announce
 
 \002Syntax
@@ -948,7 +948,7 @@ Use it if you want to call extra attention to a certain pack.
  proffer add_ann
 END
 
-my $help_del      = <<END;
+our $help_del      = <<END;
 \002proffer del
 
 \002Syntax
@@ -961,7 +961,7 @@ Use this command to delete a pack from the file list. No actual file will be del
  proffer add
 END
 
-my $help_list     = <<END;
+our $help_list     = <<END;
 \002proffer list
 
 \002Syntax
@@ -970,7 +970,7 @@ my $help_list     = <<END;
 This displays the xdcc list.
 END
 
-my $help_mov      = <<END;
+our $help_mov      = <<END;
 \002proffer mov
 
 \002Syntax
@@ -979,7 +979,7 @@ my $help_mov      = <<END;
 Use this command to move a pack in the xdcc list from number <from> to number <to>.
 END
 
-my $help_queue    = <<END;
+our $help_queue    = <<END;
 \002proffer queue
 
 \002Syntax
