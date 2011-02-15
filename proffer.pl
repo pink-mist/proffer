@@ -498,11 +498,11 @@ sub irssi_handle_xdcc {
 	my $id = $server->{'tag'} . ", $nick";
 	given ($msg) {
 		                                # if $list_deny is set, deny xdcc list and reply with the set message.
-		when (/^xdcc list$/i)         { irssi_reply($server, $nick, ($list_deny ne '') ? "XDCC LIST DENIED. $list_deny" : return_list($server->{'nick'})) }
+		when (/^xdcc list$/i)         { irssi_reply($server, $nick, ($list_deny ne '') ? "XDCC LIST DENIED. $list_deny" : return_list($server->{'nick'})); }
 		when (/^xdcc send #?(\d+)$/i) { my $pack = $1; irssi_try_send($server, $nick, $pack); }
-		when (/^xdcc info #?(\d+)$/i) { my $pack = $1; irssi_reply($server, $nick, pack_info($pack)); }
-		when (/^xdcc cancel$/i)       { irssi_reply($server, $nick, irssi_cancel_sends($server, $nick)); }
-		when (/^xdcc remove$/i)       { irssi_reply($server, $nick, remove_queues($id)); }
+		when (/^xdcc info #?(\d+)$/i) { my $pack = $1; pack_info($id, $pack); }
+		when (/^xdcc cancel$/i)       { irssi_cancel_sends($server, $nick); }
+		when (/^xdcc remove$/i)       { remove_queues($id); }
 	}
 }
 
