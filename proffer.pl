@@ -212,8 +212,12 @@ END
 	my $num = 0;
 	my $total = 0;
 	my @return = map {
-				$total += -s $_->{'file'};
-				sprintf("#%-4d %4dx [%4s] %s", ++$num, $_->{'downloads'}, byte_suffix(-s $_->{'file'}), $_->{'name'})
+				if (-f $_->{'file'}) {
+					$total += -s $_->{'file'};
+					sprintf("#%-4d %4dx [%4s] %s", ++$num, $_->{'downloads'}, byte_suffix(-s $_->{'file'}), $_->{'name'}) }
+				else {
+					my $str = sprintf("#%-4d %4dx [%4s] %s <error reading file>", ++$num, $_->{'downloads'}, '0B', $_->{'name'});
+					do_display("XDCC LIST: $str"); $str; }
 			} @files;
 
 	return sprintf($msg_beg, $num, slots_available(), $slots, byte_suffix_dec($state->{'record_speed'}),
