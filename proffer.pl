@@ -242,7 +242,7 @@ sub split_max_len {
 sub current_speed {
 	if (HAVE_IRSSI) { return byte_suffix_dec(irssi_current_speed()); }
 	else { return byte_suffix_dec(0); }
-
+}
 
 sub byte_suffix {
 	my $size = shift;
