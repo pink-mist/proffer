@@ -657,6 +657,7 @@ sub irssi_cancel_sends {
 		do_reply("$tag, $nick", "You don't have a transfer running."); return 0; }
 
 	update_status();
+	irssi_next_queue();
 	return 1;
 }
 
