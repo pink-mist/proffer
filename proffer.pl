@@ -302,6 +302,7 @@ sub user_slots_available {
 	my $id = shift;
 	if (HAVE_IRSSI) {
 		$id =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
+		# the @ids here are the _irssi tags on dcc sends
 		my @ids = map { $_->{'id'} } grep { $_->{'tag'} eq $tag and $_->{'nick'} eq $nick } @renames;
 		my @dccs = grep {
 					(($_->{'type'} eq 'SEND') and ($_->{'servertag'} eq $tag) and ($_->{'nick'} eq $nick )) or
