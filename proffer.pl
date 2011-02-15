@@ -645,6 +645,7 @@ sub irssi_cancel_sends {
 
 sub irssi_check_queue {
 	if ($restrict_send) {
+		#removes from queue anyone who isn't in a monitored channel
 		@queue = grep { $_->{'id'} =~ /^(.*), (.*)$/ and irssi_check_channels(Irssi::server_find_tag($1), $2)  } @queue;
 	}
 }
