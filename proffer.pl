@@ -11,7 +11,7 @@ use File::HomeDir;
 
 use Data::Dumper;
 
-our $VERSION = v1.1.0;
+our $VERSION = v1.2.0;
 
 our %info = (
 	author      => 'pink_mist',
@@ -22,6 +22,7 @@ our %info = (
 	license     => 'BSD'
 );
 
+# 1.2.0 - Added !list support, made it work on an irssi which gave a lot of warnings, impoved debug output, bugfixes
 # 1.1.0 - Major overhaul of user feedback, loads of bugfixes, both minor and major
 # 1.0.0 - State is good enough to get version 1.0 -- added queue handling, tab completion, help, statusbar, better irssi integration
 # 0.2.2 - Bugfix release: fixed del command which was not working
