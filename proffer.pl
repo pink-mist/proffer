@@ -42,6 +42,7 @@ my $hide          = 1;
 my $list_deny     = '';
 my $list_file     = '';
 my $restrict_send = 0;
+my $list_respond  = 0;
 
 my @files         = ();
 my @queue         = ();
@@ -212,10 +213,35 @@ END
 			join("\n", @return, sprintf($msg_end, byte_suffix_dec($total), byte_suffix_dec($state->{'transferred'})));
 }
 
+sub return_short_list {
+	my $num = 0;
+	my @return = map {
+				sprintf("#%d: %s(%s)", ++$num, $_->{'name'}, byte_suffix(-s $_->{'file'}))
+			} @files;
+	my $return = join(' - ', @return);
+	@return = split_max_len(" - (?=#)", 400, $return);
+	return join("\n", @return);
+}
+
+sub split_max_len {
+	my $split_re = shift;
+	my $max_len  = shift;
+	my $string   = shift;
+	my $position = $max_len;
+	my @return   = ();
+
+	my $re = ".{1,$max_len}";
+	while (length($string) > $max_len) {
+		if ($string =~ /^($re)$split_re(.*)$/g) { push @return, $1; $string = $2; }
+		else { return @return, $string; }
+	}
+	return @return, $string;
+}
+
 sub current_speed {
 	if (HAVE_IRSSI) { return byte_suffix_dec(irssi_current_speed()); }
 	else { return byte_suffix_dec(0); }
-}
+
 
 sub byte_suffix {
 	my $size = shift;
@@ -406,6 +432,7 @@ sub irssi_init {
 	Irssi::settings_add_str(   'proffer', 'proffer_list_deny',     $list_deny);
 	Irssi::settings_add_str(   'proffer', 'proffer_list_file',     $list_file);
 	Irssi::settings_add_bool(  'proffer', 'proffer_restrict_send', $restrict_send);
+	Irssi::settings_add_bool(  'proffer', 'proffer_list_respond',  $list_respond);
 	# Bind commands
 	Irssi::command_bind(       'proffer',                          \&irssi_proffer);
 	Irssi::command_bind(       'proffer add',                      \&irssi_add);
@@ -492,6 +519,7 @@ sub irssi_reload {
 	$val = Irssi::settings_get_str( 'proffer_list_deny');     if ($val ne $list_deny)     { $list_deny     = $val; $updated = 1; }
 	$val = Irssi::settings_get_str( 'proffer_list_file');     if ($val ne $list_file)     { $list_file     = $val; $updated = 1; }
 	$val = Irssi::settings_get_bool('proffer_restrict_send'); if ($val ne $restrict_send) { $restrict_send = $val; $updated = 1; }
+	$val = Irssi::settings_get_bool('proffer_list_respond');  if ($val ne $list_respond)  { $list_respond  = $val; $updated = 1; }
 
 	update_status() if $updated;
 	do_display('updated', 1) if $updated;
@@ -504,6 +532,25 @@ sub irssi_handle_pm {
 		if ((not $restrict_send) || (irssi_check_channels($server, $nick))) {
 			Irssi::signal_stop() if $hide;
 			irssi_handle_xdcc($server, $nick, $msg);
+		}
+	}
+	elsif ($list_respond and ($msg =~ /^!list/)) {
+		Irssi::signal_stop() if $hide;
+		irssi_handle_list($server, $nick);
+	}
+}
+
+sub irssi_handle_public {
+	my ($server, $msg, $nick, $host, $target) = @_;
+	if ($target ~~ [split(' ', $channels)]) {
+		if ($msg =~ /^xdcc list$/) {
+			Irssi::signal_stop() if $hide;
+			irssi_handle_xdcc($server, $nick, $msg);
+		}
+		elsif ($list_respond and (($msg =~ /^!list$/) or (($msg =~ /^!list (.*)$/) and ($1 eq $server->{'nick'})))) {
+			#respond with shortened xdcc list?
+			Irssi::signal_stop() if $hide;
+			irssi_handle_list($server, $nick);
 		}
 	}
 }
@@ -529,6 +576,13 @@ sub irssi_handle_xdcc {
 		when (/^xdcc cancel$/i)       { irssi_cancel_sends($server, $nick); }
 		when (/^xdcc remove$/i)       { remove_queues($id); }
 	}
+}
+
+sub irssi_handle_list {
+	my ($server, $nick) = @_;
+	my $id = $server->{'tag'} . ", $nick";
+
+	irssi_reply($server, $nick, ($list_deny ne '') ? "XDCC LIST DENIED. $list_deny" : return_short_list());
 }
 
 sub irssi_reply {
@@ -775,6 +829,8 @@ Website: http://github.com/pink-mist/proffer
    -- Set how many send slots you want to provide.
  * \002proffer_slots_user\002 <num>
    -- Set the maximum number of slots a single user can have.
+ * \002proffer_list_respond\002 <ON|OFF>
+   -- Set this to on if you want the script to respond to `!list´ in addition to `xdcc list´
 
 \002Statusbar
 You can also add a statusbar item which shows info on the status of the xdcc bot:
