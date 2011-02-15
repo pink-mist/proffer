@@ -130,8 +130,7 @@ sub do_del {
 	my $num = shift;
 	if ($num !~ /^\d+$/) { return undef; }
 
-	my $file = $files[$num-1];
-	delete $files[$num-1];
+	my ($file) = splice(@files, $num-1, 1);
 	update_file() if ($list_file ne '');
 	return sprintf("Deleted %s, downloaded %d times.", $file->{'name'}, $file->{'downloads'});
 }
