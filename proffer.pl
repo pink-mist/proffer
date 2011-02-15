@@ -419,6 +419,7 @@ sub irssi_init {
 	Irssi::command_bind(       'proffer queue send',               \&irssi_queue_force);
 	Irssi::command_bind(       'proffer queue del',                \&irssi_queue_del);
 	Irssi::command_bind(       'proffer queue mov',                \&irssi_queue_mov);
+	Irssi::command_bind(       'proffer help',                     \&irssi_proffer_help);
 	Irssi::command_bind(       'help',                             \&irssi_help);
 	# Intercept signals
 	Irssi::signal_add(         'setup changed',                    \&irssi_reload);
@@ -733,6 +734,11 @@ sub irssi_queue_mov {
 		else { do_display(sprintf("/proffer queue mov: Could not move %d to %d: Index out of bounds.", ++$from, ++$to)); }
 	}
 	else { do_display("/proffer queue mov: You need to supply valid queue numbers."); }
+}
+
+sub irssi_proffer_help {
+	my ($data, $server, $item) = @_;
+	Irssi::command("help proffer");
 }
 
 my $help_main = <<END;
