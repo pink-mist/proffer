@@ -29,7 +29,7 @@ our %info = (
 # 0.1.1 - Most things are working, you can actually use it in a limited capacity
 # 0.1.0 - First version, only some things functioning
 
-my $debug = 1;
+my $debug = 0;
 
 #default values
 my $channels      = '';
