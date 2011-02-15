@@ -42,14 +42,15 @@ my $list_deny     = '';
 my $list_file     = '';
 my $restrict_send = 0;
 
-my @files = ();
-my @queue = ();
-my $state = {
+my @files         = ();
+my @queue         = ();
+my $state         = {
 	transferred     => 0,
 	record_speed    => 0,
 	record_transfer => 0
 };
-my @renames = ();
+my $loaded        = 0;
+my @renames       = ();
 
 BEGIN {
 	*HAVE_IRSSI = Irssi->can('command_bind') ? sub {1} : sub {0};
@@ -343,7 +344,8 @@ sub pack_info {
 sub update_status {
 	#update list file if set
 	if ($list_file ne '') {
-		my $lines = return_list(Irssi::active_server()->{'nick'});
+		my $nick = defined Irssi::active_server() ? Irssi::active_server()->{'nick'} : Irssi::settings_get_str('nick');
+		my $lines = return_list($nick);
 		my $fh;
 		my $fname = $list_file; my $home = File::HomeDir->my_home();
 		$fname =~ s/^~/$home/;
@@ -353,7 +355,7 @@ sub update_status {
 	}
 
 	#update statusbar
-	Irssi::statusbar_items_redraw('proffer');
+	Irssi::statusbar_items_redraw('proffer') if $loaded;
 
 	return 1;
 }
@@ -939,6 +941,7 @@ if (HAVE_IRSSI) {
 	our %IRSSI = %info;
 	init();
 	irssi_init();
+	$loaded = 1;
 }
 else {
 	die "You need to run this inside irssi!\n";
