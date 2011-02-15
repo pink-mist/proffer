@@ -309,6 +309,8 @@ sub read_state {
 	close ($fh);
 	chomp(@lines);
 
+	if (not @lines) { return 0; } #nothing to read
+
 	$state->{'transferred'}     = shift @lines;
 	$state->{'record_speed'}    = shift @lines;
 	$state->{'record_transfer'} = shift @lines;
