@@ -57,7 +57,7 @@ BEGIN {
 }
 
 sub init {
-  my $introstr = <<END;
+	my $introstr = <<END;
 \002---------------------------------------------------------------------------------
 \002proffer - lets your irssi serve files as an xdcc bot
 \002Version - v%vd - Created by pink_mist (irc.rizon.net #shameimaru)
@@ -483,7 +483,7 @@ sub irssi_reload {
 
 sub irssi_handle_pm {
 	my ($server, $msg, $nick, $host) = @_;
-  if ($msg =~ /^xdcc /i) {
+	if ($msg =~ /^xdcc /i) {
 		if ((not $restrict_send) || (irssi_check_channels($server, $nick))) {
 			Irssi::signal_stop() if $hide;
 			irssi_handle_xdcc($server, $nick, $msg);
