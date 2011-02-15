@@ -106,7 +106,7 @@ sub do_add {
 	}
 	else { do_display("/proffer add: Could not stat $path."); return 0; }
 
-	update_file() if ($list_file ne '');
+	update_status();
 	return 1;
 }
 
@@ -147,9 +147,9 @@ sub do_del {
 	if (not defined $files[$num-1]) { do_display("/proffer del: Number $num out of bounds."); return 0; }
 
 	my ($file) = splice(@files, $num-1, 1);
-	update_file() if ($list_file ne '');
 	do_display(sprintf("/proffer del: Deleted %s, downloaded %d times.", $file->{'name'}, $file->{'downloads'}));
 
+	update_status();
 	return 1;
 }
 
@@ -164,9 +164,9 @@ sub do_mov {
 	my $item = splice(@files, $from, 1);
 	my @end = splice(@files, $to);
 	push @files, $item, @end;
-	update_file() if ($list_file ne '');
 	do_display(sprintf("/proffer mov: Moved %s to %d.", $item->{'name'}, $to+1));
 
+	update_status();
 	return 1;
 }
 
@@ -271,9 +271,9 @@ sub do_queue {
 		do_reply($id, "You already queued pack #$pack."); return 0; }
 
 	push @queue, { id => $id, pack => $pack };
-	update_file() if ($list_file ne '');
 	do_reply($id, sprintf("Added you to the main queue for pack #%d in position %d.", $pack, $#queue+1));
 
+	update_status();
 	return 1;
 }
 
@@ -340,14 +340,20 @@ sub pack_info {
 	return 1;
 }
 
-sub update_file {
-	my $lines = return_list(Irssi::active_server()->{'nick'});
-	my $fh;
-	my $fname = $list_file; my $home = File::HomeDir->my_home();
-	$fname =~ s/^~/$home/;
-	if (not open($fh, '>', $fname)) { do_display("XDCC LIST FILE: Could not open file $list_file: $!."); return 0; };
-	print $fh $lines;
-	close $fh;
+sub update_status {
+	#update list file if set
+	if ($list_file ne '') {
+		my $lines = return_list(Irssi::active_server()->{'nick'});
+		my $fh;
+		my $fname = $list_file; my $home = File::HomeDir->my_home();
+		$fname =~ s/^~/$home/;
+		if (not open($fh, '>', $fname)) { do_display("XDCC LIST FILE: Could not open file $list_file: $!."); return 0; };
+		print $fh $lines;
+		close $fh;
+	}
+
+	#update statusbar
+	Irssi::statusbar_items_redraw('proffer');
 
 	return 1;
 }
@@ -360,6 +366,7 @@ sub remove_queues {
 		do_reply($id, sprintf("Removed you from %d queues.", $num-scalar(@queue))); }
 	else { do_reply($id, "You don't appear to be in a queue."); return 0; }
 
+	update_status();
 	return 1;
 }
 
@@ -466,11 +473,10 @@ sub irssi_reload {
 	$val = Irssi::settings_get_str( 'proffer_list_deny');     if ($val ne $list_deny)     { $list_deny     = $val; $updated = 1; }
 	$val = Irssi::settings_get_str( 'proffer_list_file');     if ($val ne $list_file)     { $list_file     = $val; $updated = 1; }
 	$val = Irssi::settings_get_bool('proffer_restrict_send'); if ($val ne $restrict_send) { $restrict_send = $val; $updated = 1; }
-	do_display('updated', 1) if $updated;
-	update_file() if ($list_file ne '') && $updated;
 
-	#update statusbar
-	Irssi::statusbar_items_redraw('proffer');
+	update_status() if $updated;
+	do_display('updated', 1) if $updated;
+	return 1;
 }
 
 sub irssi_handle_pm {
@@ -521,13 +527,14 @@ sub irssi_try_send {
 	my ($server, $nick, $pack) = @_;
 	my $tag = $server->{'tag'}; # use "$tag, $nick" to identify a specific nick on a specific server
 
-	if (slots_available() and user_slots_available("$tag, $nick")) { irssi_send($server, $nick, $pack); }
-	elsif (queues_available() and user_queues_available("$tag, $nick")) { irssi_reply($server, $nick, do_queue("$tag, $nick", $pack)); }
-	else { irssi_reply($server, $nick, "No more queues available for you."); }
-	update_file() if ($list_file ne '');
+	if (slots_available() and user_slots_available("$tag, $nick")) {
+		irssi_send($server, $nick, $pack); }
+	elsif (queues_available() and user_queues_available("$tag, $nick")) {
+		irssi_reply($server, $nick, do_queue("$tag, $nick", $pack)); }
+	else {
+		irssi_reply($server, $nick, "No more queues available for you."); return 0; }
 
-	#update statusbar
-	Irssi::statusbar_items_redraw('proffer');
+	return 1;
 }
 
 sub irssi_send {
@@ -540,6 +547,9 @@ sub irssi_send {
 
 	irssi_reply($server, $nick, "Sending you file $name. Resume supported.");
 	$server->command("dcc send $nick \"$file\"");
+
+	update_status();
+	return 1;
 }
 
 sub irssi_dcc_update {
@@ -556,8 +566,8 @@ sub irssi_dcc_update {
 	#see if any send slots are available
 	irssi_next_queue();
 
-	#update statusbar
-	Irssi::statusbar_items_redraw('proffer');
+	update_status();
+	return 1;
 }
 
 sub irssi_current_speed {
@@ -600,10 +610,9 @@ sub irssi_next_queue {
 	}
 	else { do_display("XDCC QUEUE: no slots available :(", 2); }
 	do_display("XDCC QUEUE: finished.", 2);
-	update_file() if ($list_file ne '');
 
-	#update statusbar
-	Irssi::statusbar_items_redraw('proffer');
+	update_status();
+	return 1;
 }
 
 sub irssi_queue {
@@ -611,8 +620,7 @@ sub irssi_queue {
 	if ($data ne '') {
 		Irssi::command_runsub('proffer queue', $data, $server, $item);
 
-		#update statusbar
-		Irssi::statusbar_items_redraw('proffer');
+		update_status();
 		return;
 	}
 	my $num = 0;
@@ -636,9 +644,6 @@ sub irssi_cancel_sends {
 		do_reply("$tag, $nick", sprintf("Aborted %d sends.", scalar(@dccs))); }
 	else {
 		do_reply("$tag, $nick", "You don't have a transfer running."); return 0; }
-
-	#update statusbar
-	Irssi::statusbar_items_redraw('proffer');
 
 	return 1;
 }
