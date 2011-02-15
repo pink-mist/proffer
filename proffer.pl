@@ -470,7 +470,11 @@ sub irssi_reply {
 	my ($server, $nick, $msg) = @_;
 
 	#if the line of the message isn't empty, /notice it to $nick
-	map { $_ eq '' or $server->command("NOTICE $nick $_"); } split("\n", $msg);
+	map {
+			$_ eq '' or
+			($hide and ($server->send_raw("NOTICE $nick :$_") or 1)) or #if $hide is true, send in a non-displayed way
+			$server->command("NOTICE $nick $_")
+		} split("\n", $msg);
 }
 
 sub irssi_try_send {
