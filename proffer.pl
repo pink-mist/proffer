@@ -82,6 +82,7 @@ sub do_display {
 	if ($debuglvl > $debug) { return 0; }
 
 	if (HAVE_IRSSI) {
+		no strict 'subs';
 		map { Irssi::print("\002proffer:\002 $_", Irssi::MSGLEVEL_CLIENTCRAP) } split("\n", $message);
 	}
 	else { print $message; }
