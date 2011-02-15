@@ -247,6 +247,7 @@ sub current_speed {
 sub byte_suffix {
 	my $size = shift;
 	my $suffix = 'B';
+	if (/^\d+$/ !~ $size) { $size = 0; }
 	if ($size >= 1000) { $size = int($size/1024); $suffix = 'k';
 		if ($size >= 1000) { $size = int($size/1024); $suffix = 'M';
 			if ($size >= 1000) { $size = int($size/1024); $suffix = 'G';
@@ -258,6 +259,7 @@ sub byte_suffix {
 sub byte_suffix_dec {
 	my $size = shift;
 	my $suffix = 'B';
+	if (/^\d+$/ !~ $size) { $size = 0; }
 	if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'kB';
 		if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'MB';
 			if ($size >= 1000) { $size = int(($size/1024)*100)/100; $suffix = 'GB';
