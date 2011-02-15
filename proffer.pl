@@ -943,6 +943,7 @@ if (HAVE_IRSSI) {
 	init();
 	irssi_init();
 	$loaded = 1;
+	Irssi::statusbars_recreate_items();
 }
 else {
 	die "You need to run this inside irssi!\n";
@@ -951,6 +952,7 @@ else {
 sub UNLOAD {
 	save_state();
 	Irssi::print("Shutting down proffer.") if $debug;
+	Irssi::statusbars_recreate_items();
 }
 
 
