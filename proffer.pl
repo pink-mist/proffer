@@ -99,7 +99,7 @@ sub do_add {
 		my ($fname, undef, undef) = fileparse($path);
 		push @files, { downloads => 0, file => $path , name => $fname };
 		if (defined $msg) { do_announce( [ scalar(@files), $msg ] ); }
-		do_display("/proffer add: Added $path.");
+		do_display("/proffer add: Added $path.") unless (not $loaded and $hide);
 	}
 	elsif (-d $path) {
 		my $dh;
@@ -961,8 +961,8 @@ sub irssi_statusbar {
 
 if (HAVE_IRSSI) {
 	our %IRSSI = %info;
-	init();
 	irssi_init();
+	init();
 	$loaded = 1;
 	Irssi::statusbars_recreate_items();
 }
