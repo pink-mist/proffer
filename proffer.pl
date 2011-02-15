@@ -256,8 +256,7 @@ sub read_state {
 	foreach my $line (@lines) {
 		if ($line =~ /^(\d+) (.*)$/) {
 			my $dls = $1; my $file = $2;
-			my $add_status = do_add($file);
-			if ($add_status =~ /^Added /) { $files[$#files]->{'downloads'} = $dls; }
+			if (do_add($file)) { $files[$#files]->{'downloads'} = $dls; }
 		}
 		else { die "Could not properly parse state file $state_file. Has it been corrupted?"; }
 	}
