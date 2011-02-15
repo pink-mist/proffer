@@ -346,13 +346,6 @@ sub pack_info {
 }
 
 sub update_status {
-	#need to add a timeout to update so we don't rape the hdd too much
-	if ($do_update) {
-		$do_update = 0;
-		Irssi::timeout_add_once(1000, sub { $do_update = 1; update_status() }, undef);
-	}
-	else { return 0; }
-
 	#update list file if set
 	if ($list_file ne '') {
 		my $nick = defined Irssi::active_server() ? Irssi::active_server()->{'nick'} : Irssi::settings_get_str('nick');
@@ -579,7 +572,11 @@ sub irssi_dcc_update {
 	#see if any send slots are available
 	irssi_next_queue();
 
-	update_status();
+	#need to add a timeout to update so we don't rape the hdd too much
+	if ($do_update) {
+		$do_update = 0;
+		Irssi::timeout_add_once(1000, sub { $do_update = 1; update_status() }, undef);
+	}
 	return 1;
 }
 
@@ -615,6 +612,7 @@ sub irssi_next_queue {
 				$add->{'id'} =~ /^(.*), (.*)$/; my ($tag, $nick) = ($1, $2);
 				my $server = Irssi::server_find_tag($tag);
 				irssi_send($server, $nick, $add->{'pack'});
+				update_status();
 				last;
 			}
 			else { do_display(sprintf("XDCC QUEUE: Can't send to %s.", $queue->{'id'}), 2); }
@@ -624,7 +622,6 @@ sub irssi_next_queue {
 	else { do_display("XDCC QUEUE: no slots available :(", 2); }
 	do_display("XDCC QUEUE: finished.", 2);
 
-	update_status();
 	return 1;
 }
 
@@ -659,6 +656,7 @@ sub irssi_cancel_sends {
 	else {
 		do_reply("$tag, $nick", "You don't have a transfer running."); return 0; }
 
+	update_status();
 	return 1;
 }
 
