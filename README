@@ -23,8 +23,8 @@ To setup file-sharing, just set proffer_channels to a list of channels you want 
 in and add files to the bot:
 
  * /set proffer_channels #shameimaru #test
- * /proffer_add ~/sources/perl/proffer/proffer.pl
- * /proffer_add ~/xdcc files/
+ * /proffer add ~/sources/perl/proffer/proffer.pl
+ * /proffer add ~/xdcc files/
 
 That's all that's necessary. There are some other options that you can tweak to how you
 like them, see the help for more info.
