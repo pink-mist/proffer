@@ -866,7 +866,7 @@ Website: http://github.com/pink-mist/proffer
 
 \002Basic setup
  * /set proffer_channels <#channel1 ...>
- * /proffer_add <file|dir>
+ * /proffer add <file|dir>
 
 \002Settings
  * \002proffer_channels\002 <#channel1 ...>
